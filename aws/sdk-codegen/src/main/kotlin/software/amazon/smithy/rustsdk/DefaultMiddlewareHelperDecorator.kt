@@ -14,7 +14,7 @@ import software.amazon.smithy.rust.codegen.smithy.generators.config.ServiceConfi
 
 class DefaultMiddlewareHelperDecorator : RustCodegenDecorator {
     override val name: String = "DefaultMiddlewareHelper"
-    override val order: Byte = 0
+    override val order: Byte = 10
 
     override fun configCustomizations(
         codegenContext: CodegenContext,
