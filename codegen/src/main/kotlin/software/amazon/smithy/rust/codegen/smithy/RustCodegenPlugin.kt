@@ -26,6 +26,7 @@ class RustCodegenPlugin : SmithyBuildPlugin {
     override fun getName(): String = "rust-codegen"
 
     override fun execute(context: PluginContext) {
+        println("starting build: ${context.settings}")
         // Suppress extremely noisy logs about reserved words
         Logger.getLogger(ReservedWordSymbolProvider::class.java.name).level = Level.OFF
         // Discover `RustCodegenDecorators` on the classpath. `RustCodegenDecorator` return different types of
@@ -37,6 +38,7 @@ class RustCodegenPlugin : SmithyBuildPlugin {
 
         // CodegenVisitor is the main driver of code generation that traverses the model and generates code
         CodegenVisitor(context, codegenDecorator).execute()
+        println("done build")
     }
 
     companion object {

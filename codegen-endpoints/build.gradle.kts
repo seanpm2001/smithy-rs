@@ -22,7 +22,7 @@ val kotestVersion: String by project
 
 dependencies {
     implementation(project(":codegen"))
-    implementation("software.amazon.smithy:smithy-aws-reterminus:0.1.0")
+    implementation("software.amazon.smithy:reterminus-core:0.1.0")
     implementation(project(":aws:rust-runtime"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.8.2")
     testImplementation("io.kotest:kotest-assertions-core-jvm:$kotestVersion")

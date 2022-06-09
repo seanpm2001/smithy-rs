@@ -31,7 +31,7 @@ dependencies {
     testImplementation("io.kotest:kotest-assertions-core-jvm:$kotestVersion")
     implementation(project(":codegen-endpoints"))
     implementation("software.amazon.smithy:s3-rules:0.1.0")
-    implementation("software.amazon.smithy:smithy-aws-reterminus:0.1.0")
+    implementation("software.amazon.smithy:reterminus-core:0.1.0")
 }
 
 val generateAwsSdkVersion by tasks.registering {

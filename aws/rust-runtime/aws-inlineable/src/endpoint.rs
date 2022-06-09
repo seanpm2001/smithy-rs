@@ -121,7 +121,7 @@ impl PartitionTable {
     }
 
     pub(crate) fn eval(&self, region: &str) -> Option<&Partition> {
-        let (partition, inferred) = map_partition(region);
+        let (partition, _inferred) = map_partition(region);
         self.partitions.get(partition)
     }
 }

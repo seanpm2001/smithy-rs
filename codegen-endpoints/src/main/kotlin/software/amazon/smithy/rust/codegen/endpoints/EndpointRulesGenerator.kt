@@ -20,6 +20,7 @@ import software.amazon.smithy.aws.reterminus.lang.rule.TreeRule
 import software.amazon.smithy.codegen.core.Symbol
 import software.amazon.smithy.rust.codegen.rustlang.*
 import software.amazon.smithy.rust.codegen.smithy.*
+import software.amazon.smithy.rust.codegen.smithy.generators.Instantiator
 import software.amazon.smithy.rust.codegen.util.dq
 import software.amazon.smithy.rust.codegen.util.orNull
 import software.amazon.smithy.rust.codegen.util.toSnakeCase
@@ -29,6 +30,14 @@ class EndpointsRulesGenerator(private val endpointsModel: EndpointRuleset, runti
     private fun nextName(): String {
         nameIdx += 1
         return "var_$nameIdx"
+    }
+
+    private fun nameFor(expr: Expr): String {
+        nameIdx += 1
+        return when (expr) {
+            is Ref -> expr.name.rustName()
+            else -> "var_$nameIdx"
+        }
     }
 
     private val scope = arrayOf(
@@ -137,13 +146,12 @@ class EndpointsRulesGenerator(private val endpointsModel: EndpointRuleset, runti
                 rust("let ${it.name.rustName()} = &params.${it.name.rustName()};")
             }
         }
+        Attribute.Custom("allow(unused_variables)").render(it)
         it.rustTemplate(
             """
             pub(crate) fn resolve_endpoint(params: &#{Params}) -> Result<#{Endpoint}, std::borrow::Cow<'static, str>> {
                 #{expand_params:W}
                 #{rules:W}
-                
-                return Err("No rules matched".into())
             }
         """,
             *scope,
@@ -153,14 +161,20 @@ class EndpointsRulesGenerator(private val endpointsModel: EndpointRuleset, runti
         )
     }
 
-    private fun treeRule(conditions: List<Condition>, rules: List<Rule>, ctx: Context) =
-        generateCondition(conditions, { ctx ->
-            {
-                rules.forEach { rule ->
-                    generateCondition(rule.conditions, { ctx -> ruleBody(rule, ctx) }, ctx)(this)
+    private fun treeRule(conditions: List<Condition>, rules: List<Rule>, ctx: Context): Writable {
+        return writable {
+            generateCondition(conditions, { ctx ->
+                {
+                    rules.forEach { rule ->
+                        generateCondition(rule.conditions, { ctx -> ruleBody(rule, ctx) }, ctx)(this)
+                    }
+                    if (rules.last().conditions.isNotEmpty()) {
+                        rust("""return Err(format!("No rules matched. Parameters: {:?}", params).into())""")
+                    }
                 }
-            }
-        }, ctx)
+            }, ctx)(this)
+        }
+    }
 
     private fun ruleBody(rule: Rule, ctx: Context): Writable = writable {
         when (rule) {
@@ -180,10 +194,19 @@ class EndpointsRulesGenerator(private val endpointsModel: EndpointRuleset, runti
 
     private fun generateEndpoint(endpoint: Endpoint, ctx: Context): Writable = writable {
         rustTemplate(
-            """#{Endpoint}::mutable(dbg!(#{uri:W}).parse().expect("invalid URI"))""",
+            """#{Endpoint}::mutable(#{uri:W}.parse().expect("invalid URI"))""",
             "uri" to generateExpr(endpoint.url, ctx, Ownership.Owned),
             *scope
         )
+    }
+
+
+    fun Condition.conditionalFunction(): Expr {
+        val fn = this.fn
+        return when (fn) {
+            is IsSet -> fn.target
+            else -> fn
+        }
     }
 
     @Contract(pure = true)
@@ -194,38 +217,30 @@ class EndpointsRulesGenerator(private val endpointsModel: EndpointRuleset, runti
             val first = condition.first()
             rust("/* ${escape(first.toString())} */")
             val rest = condition.drop(1)
-            val condName = nextName()
-            val result = first.result.orNull()?.rustName()?.let { "let $it = $condName;" } ?: ""
-            //val next = generateCondition(rest, body, ctx.withValue(first.fn))
-            val fn = first.fn
+            val condName = first.result.orNull()?.rustName() ?: nameFor(first.conditionalFunction())
+            val fn = first.conditionalFunction()
             when {
-                fn is IsSet -> rustTemplate(
-                    "if let Some($condName) = #{target:W} { $result #{next:W} }",
-                    "target" to generateExpr(fn.target, ctx, Ownership.Borrowed),
-                    "next" to generateCondition(rest, body, ctx.withValue(fn.target, condName))
-                )
                 fn.type() is Type.Option -> rustTemplate(
-                    "if let Some($condName) = #{target:W} { $result #{next:W} }",
+                    "if let Some($condName) = #{target:W} { #{next:W} }",
                     "target" to generateExpr(fn, ctx, Ownership.Borrowed),
                     "next" to generateCondition(rest, body, ctx.withValue(fn, condName))
                 )
-                else -> rustTemplate(
-                    """
-                        let $condName = #{target:W};
-                        if #{truthy:W} { $result #{next:W} }""",
-                    "target" to generateExpr(first.fn, ctx, Ownership.Owned),
-                    "truthy" to truthy(condName, first.fn.type()),
-                    "next" to generateCondition(rest, body, ctx.withValue(first.fn, condName))
-                )
+                else -> {
+                    check(first.result.isEmpty)
+                    rustTemplate(
+                        """if #{truthy:W} { #{next:W} }""",
+                        "truthy" to truthy(generateExpr(first.fn, ctx, Ownership.Owned), first.fn.type()),
+                        "next" to generateCondition(rest, body, ctx)
+                    )
+                }
             }
         }
     }
 
-    fun truthy(name: String, type: Type): Writable = writable {
+    fun truthy(name: Writable, type: Type): Writable = writable {
         when (type) {
-            is Type.Bool -> rust(name)
-            is Type.Option -> rust("let Some($name) = name")
-            is Type.Str -> rust("${name}.len() > 0")
+            is Type.Bool -> name(this)
+            is Type.Str -> rust("#W.len() > 0", name)
             else -> error("invalid: $type")
         }
     }
@@ -263,10 +278,7 @@ class EndpointsRulesGenerator(private val endpointsModel: EndpointRuleset, runti
                     }
                 }
                 is Template -> {
-                    if (ownership == Ownership.Borrowed) {
-                        rust("&")
-                    }
-                    this.generateTemplate(expr, ctx)
+                    this.generateTemplate(expr, ctx, ownership)
                 }
                 is ParseArn -> rustTemplate(
                     "#{endpoint_util}::Arn::parse(#{expr:W})",
@@ -295,21 +307,15 @@ class EndpointsRulesGenerator(private val endpointsModel: EndpointRuleset, runti
         getAttr.path().toList().forEach { part ->
             when (part) {
                 is GetAttr.Part.Key -> rust(".${part.key.rustName()}")
-                is GetAttr.Part.Index -> rust(".get(${part.index})")
+                is GetAttr.Part.Index -> rust(".get(${part.index}).cloned()") // we end up with Option<&&T>, we need to get to Option<&T>
             }
         }
     }
 
-    fun RustWriter.generateTemplate(template: Template, ctx: Context) {
-        rust("{ let mut out = String::new(); ")
-        rust("/* ${escape(template.toString())} */")
-        for (part in template.parts) {
-            when (part) {
-                is Template.Literal -> rust("out.push_str(${part.value.dq()});")
-                is Template.Dynamic -> rust("out.push_str(#W);", generateExpr(part.expr, ctx, Ownership.Borrowed))
-            }
-        }
-        rust("out }")
+    fun RustWriter.generateTemplate(template: Template, ctx: Context, ownership: Ownership) {
+        val parts =
+            template.accept(TemplateGenerator(ownership) { expr -> generateExpr(expr, ctx, Ownership.Borrowed) })
+        parts.forEach { it(this) }
     }
 }
 

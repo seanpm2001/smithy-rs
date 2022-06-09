@@ -60,7 +60,7 @@ fun Project.discoverServices(serviceMembership: Membership): AwsServices {
     val models = project.file("aws-models")
     val baseServices = fileTree(models)
         .sortedBy { file -> file.name }
-        .filter { file -> serviceMembership.considerFile(file) }
+        //.filter { file -> serviceMembership.considerFile(file) }
         .mapNotNull { file ->
             val model = Model.assembler().addImport(file.absolutePath).assemble().result.get()
             val services: List<ServiceShape> = model.shapes(ServiceShape::class.java).sorted().toList()
