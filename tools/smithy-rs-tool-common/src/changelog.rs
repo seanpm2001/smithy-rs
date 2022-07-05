@@ -11,6 +11,40 @@ use std::fmt;
 use std::path::Path;
 use std::str::FromStr;
 
+pub trait ChangeEntryMetadata {
+    fn validate(&self) -> Result<()>;
+    fn is_tada(&self) -> bool;
+    fn is_breaking(&self) -> bool;
+    fn is_bug(&self) -> bool;
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)] 
+pub struct AwsMetadata {
+    pub bug: bool,
+    pub breaking: bool,
+    pub tada: bool,
+}
+
+impl ChangeEntryMetadata for AwsMetadata {
+    fn validate(&self) -> Result<()> {
+        Ok(())
+    }
+    fn is_tada(&self) -> bool {
+        self.tada
+    }
+    fn is_breaking(&self) -> bool {
+        self.breaking
+    }
+    fn is_bug(&self) -> bool {
+        self.bug
+    }
+}
+impl Default for AwsMetadata {
+    fn default() -> Self {
+        AwsMetadata { bug : false, breaking : false, tada: false}
+    }
+}
+
 #[derive(Copy, Clone, Debug, Serialize, PartialEq, Eq)]
 pub enum SdkAffected {
     Client,
@@ -49,12 +83,27 @@ impl<'de> Deserialize<'de> for SdkAffected {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Meta {
+#[serde(deny_unknown_fields)] 
+pub struct SmithyRsMetadata {
     pub bug: bool,
     pub breaking: bool,
     pub tada: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sdk: Option<SdkAffected>
+    #[serde(default)]
+    pub target: SdkAffected
+}
+impl ChangeEntryMetadata for SmithyRsMetadata {
+    fn validate(&self) -> Result<()> {
+        Ok(())
+    }
+    fn is_tada(&self) -> bool {
+        self.tada
+    }
+    fn is_breaking(&self) -> bool {
+        self.breaking
+    }
+    fn is_bug(&self) -> bool {
+        self.bug
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -111,11 +160,12 @@ impl FromStr for Reference {
     }
 }
 
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct HandAuthoredEntry {
+pub struct HandAuthoredEntry<T> 
+    where T : ChangeEntryMetadata
+{
     pub message: String,
-    pub meta: Meta,
+    pub meta: T,
     pub author: String,
     #[serde(default)]
     pub references: Vec<Reference>,
@@ -124,7 +174,7 @@ pub struct HandAuthoredEntry {
     pub since_commit: Option<String>,
 }
 
-impl HandAuthoredEntry {
+impl<T : ChangeEntryMetadata> HandAuthoredEntry<T> {
     /// Validate a changelog entry to ensure it follows standards
     pub fn validate(&self) -> Result<()> {
         if self.author.is_empty() {
@@ -136,8 +186,7 @@ impl HandAuthoredEntry {
         if self.references.is_empty() {
             bail!("Changelog entry must refer to at least one pull request or issue");
         }
-
-        Ok(())
+        self.meta.validate()
     }
 }
 
@@ -160,13 +209,14 @@ pub struct SdkModelEntry {
 }
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
-pub struct Changelog {
+pub struct Changelog
+{
     #[serde(rename = "smithy-rs")]
     #[serde(default)]
-    pub smithy_rs: Vec<HandAuthoredEntry>,
+    pub smithy_rs: Vec<HandAuthoredEntry<SmithyRsMetadata>>,
     #[serde(rename = "aws-sdk-rust")]
     #[serde(default)]
-    pub aws_sdk_rust: Vec<HandAuthoredEntry>,
+    pub aws_sdk_rust: Vec<HandAuthoredEntry<AwsMetadata>>,
     #[serde(rename = "aws-sdk-model")]
     #[serde(default)]
     pub sdk_models: Vec<SdkModelEntry>,
@@ -218,11 +268,17 @@ impl Changelog {
 
     pub fn validate(&self) -> Result<(), Vec<String>> {
         let mut errors = vec![];
-        for entry in self.aws_sdk_rust.iter().chain(self.smithy_rs.iter()) {
+        for entry in self.aws_sdk_rust.iter() {
             if let Err(e) = entry.validate() {
                 errors.push(format!("{}", e));
             }
         }
+        for entry in self.smithy_rs.iter() {
+            if let Err(e) = entry.validate() {
+                errors.push(format!("{}", e));
+            }
+        }
+
         if errors.is_empty() {
             Ok(())
         } else {
@@ -233,6 +289,8 @@ impl Changelog {
 
 #[cfg(test)]
 mod tests {
+    use crate::changelog::{SmithyRsMetadata, AwsMetadata};
+
     use super::{Changelog, HandAuthoredEntry, SdkAffected};
     use anyhow::{Context};
 
@@ -284,73 +342,52 @@ mod tests {
 
     #[test]
     fn test_hand_authored_sdk() {
+        // server sdk target
         let value = r#"
             message = "Fix typos in module documentation for generated crates"
             references = ["smithy-rs#920"]
-            meta = { "breaking" = false, "tada" = false, "bug" = false, "sdk" = "server" }
+            meta = { "breaking" = false, "tada" = false, "bug" = false, "target" = "Server" }
             author = "rcoh"
         "#;
         {
-           let value : HandAuthoredEntry = toml::from_str(value).context("String should have parsed").unwrap();
-            assert_eq!(value.meta.sdk, Some(SdkAffected::Server));
-        }
-        // different case enum value
-        let value = r#"
-            message = "Fix typos in module documentation for generated crates"
-            references = ["smithy-rs#920"]
-            meta = { "breaking" = false, "tada" = false, "bug" = false, "sdk" = "Server" }
-            author = "rcoh"
-        "#;
-        {
-           let value : HandAuthoredEntry = toml::from_str(value).context("String should have parsed").unwrap();
-            assert_eq!(value.meta.sdk, Some(SdkAffected::Server));
+            let value : HandAuthoredEntry<SmithyRsMetadata> = toml::from_str(value).context("String should have parsed").unwrap();
+            assert_eq!(value.meta.target, SdkAffected::Server);
         }
 
-        // different enum value
+        // client sdk target
         let value = r#"
             message = "Fix typos in module documentation for generated crates"
             references = ["smithy-rs#920"]
-            meta = { "breaking" = false, "tada" = false, "bug" = false, "sdk" = "Client" }
+            meta = { "breaking" = false, "tada" = false, "bug" = false, "target" = "Client" }
             author = "rcoh"
         "#;
         {
-           let value : HandAuthoredEntry = toml::from_str(value).context("String should have parsed").unwrap();
-            assert_eq!(value.meta.sdk, Some(SdkAffected::Client));
+            let value : HandAuthoredEntry<SmithyRsMetadata> = toml::from_str(value).context("String should have parsed").unwrap();
+            assert_eq!(value.meta.target, SdkAffected::Client);
         }
         // Both enum value
         let value = r#"
             message = "Fix typos in module documentation for generated crates"
             references = ["smithy-rs#920"]
-            meta = { "breaking" = false, "tada" = false, "bug" = false, "sdk" = "Both" }
+            meta = { "breaking" = false, "tada" = false, "bug" = false, "target" = "Both" }
             author = "rcoh"
         "#;
         {
-           let value : HandAuthoredEntry = toml::from_str(value).context("String should have parsed").unwrap();
-            assert_eq!(value.meta.sdk, Some(SdkAffected::Both));
-        }
-        // both enum value
-        let value = r#"
-            message = "Fix typos in module documentation for generated crates"
-            references = ["smithy-rs#920"]
-            meta = { "breaking" = false, "tada" = false, "bug" = false, "sdk" = "both" }
-            author = "rcoh"
-        "#;
-        {
-           let value : HandAuthoredEntry = toml::from_str(value).context("String should have parsed").unwrap();
-            assert_eq!(value.meta.sdk, Some(SdkAffected::Both));
+            let value : HandAuthoredEntry<SmithyRsMetadata> = toml::from_str(value).context("String should have parsed").unwrap();
+            assert_eq!(value.meta.target, SdkAffected::Both);
         }
         // an invalid sdk value
         let value = r#"
             message = "Fix typos in module documentation for generated crates"
             references = ["smithy-rs#920"]
-            meta = { "breaking" = false, "tada" = false, "bug" = false, "sdk" = "Some other invalid" }
+            meta = { "breaking" = false, "tada" = false, "bug" = false, "target" = "Some other invalid" }
             author = "rcoh"
         "#;
         {
-           let value : Result<HandAuthoredEntry, _> = toml::from_str(value).context("String should not have parsed");
+            let value : Result<HandAuthoredEntry<SmithyRsMetadata>, _> = toml::from_str(value).context("String should not have parsed");
             assert!(value.is_err());
         }
-        // missing sdk in the meta tag
+        // missing sdk in the meta tag, should default to Both
         let value = r#"
             message = "Fix typos in module documentation for generated crates"
             references = ["smithy-rs#920"]
@@ -358,8 +395,30 @@ mod tests {
             author = "rcoh"
         "#;
         {
-            let value : HandAuthoredEntry = toml::from_str(value).context("String should have parsed as it has none meta.sdk").unwrap();
-            assert_eq!(value.meta.sdk, None);
+            let value : HandAuthoredEntry<SmithyRsMetadata> = toml::from_str(value).context("String should have parsed as it has none meta.sdk").unwrap();
+            assert_eq!(value.meta.target, SdkAffected::Both);
+        }
+        // parsing of awssdk should work properly
+        let value = r#"
+            message = "Fix typos in module documentation for generated crates"
+            references = ["smithy-rs#920"]
+            meta = { "breaking" = true, "tada" = false, "bug" = false }
+            author = "rcoh"
+        "#;
+        {
+            let value : HandAuthoredEntry<AwsMetadata> = toml::from_str(value).context("String should have parsed as it has none meta.sdk").unwrap();
+            assert!(value.meta.breaking);
+        }
+        // giving a target for AwsSdk is a failure
+        let value = r#"
+            message = "Fix typos in module documentation for generated crates"
+            references = ["smithy-rs#920"]
+            meta = { "breaking" = true, "tada" = false, "bug" = false, "target" = "server" }
+            author = "rcoh"
+        "#;
+        {
+            let value : Result<HandAuthoredEntry<AwsMetadata>, anyhow::Error> = toml::from_str(value).context("String should have parsed as it has none meta.sdk");
+            assert!(value.is_err());
         }
     }
 }

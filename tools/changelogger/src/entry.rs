@@ -5,10 +5,11 @@
 
 use anyhow::{bail, Result};
 use clap::clap_derive::ArgEnum;
-use smithy_rs_tool_common::changelog::{Changelog, HandAuthoredEntry, SdkModelEntry};
+use smithy_rs_tool_common::changelog::{Changelog, HandAuthoredEntry, SdkModelEntry, SmithyRsMetadata, AwsMetadata, ChangeEntryMetadata};
 use smithy_rs_tool_common::git::Git;
 use smithy_rs_tool_common::versions_manifest::VersionsManifest;
 use std::path::Path;
+
 
 #[derive(ArgEnum, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ChangeSet {
@@ -22,7 +23,7 @@ pub struct ChangelogEntries {
 }
 
 impl ChangelogEntries {
-    pub fn filter(
+    pub fn filter<T : ChangeEntryMetadata>(
         self,
         smithy_rs: &dyn Git,
         change_set: ChangeSet,
@@ -36,21 +37,22 @@ impl ChangelogEntries {
                         smithy_rs.rev_list("HEAD", &manifest.smithy_rs_revision, None)?;
                     Ok(self
                         .aws_sdk_rust
-                        .into_iter()
+                        .iter()
                         .filter(|entry| match entry {
                             ChangelogEntry::AwsSdkModel(_) => true,
-                            ChangelogEntry::HandAuthored(entry) => {
+                            ChangelogEntry::HandAuthoredAwsSdk(entry) => {
                                 if let Some(since_commit) = &entry.since_commit {
                                     revisions.iter().any(|rev| rev.as_ref() == since_commit)
                                 } else {
                                     true
                                 }
-                            }
+                            },
+                            _ => bail!("An invalid change log entry has been provided for AWS SDK")
                         })
                         .collect())
                 } else {
                     if self.aws_sdk_rust.iter().any(|entry| {
-                        entry.hand_authored().map(|e| e.since_commit.is_some()) == Some(true)
+                        entry.hand_authored_aws_sdk().map(|e| e.since_commit.is_some()) == Some(true)
                     }) {
                         bail!("SDK changelog entries have `since_commit` information, but no previous release versions manifest was given");
                     }
@@ -72,12 +74,12 @@ impl From<Changelog> for ChangelogEntries {
             smithy_rs: changelog
                 .smithy_rs
                 .into_iter()
-                .map(ChangelogEntry::HandAuthored)
+                .map(ChangelogEntry::HandAuthoredSmithyRs)
                 .collect(),
             aws_sdk_rust: changelog
                 .aws_sdk_rust
                 .into_iter()
-                .map(ChangelogEntry::HandAuthored)
+                .map(ChangelogEntry::HandAuthoredAwsSdk)
                 .chain(
                     changelog
                         .sdk_models
@@ -90,15 +92,24 @@ impl From<Changelog> for ChangelogEntries {
 }
 
 #[derive(Clone, Debug)]
-pub enum ChangelogEntry {
-    HandAuthored(HandAuthoredEntry),
+pub enum ChangelogEntry
+{
+    HandAuthoredAwsSdk(HandAuthoredEntry<AwsMetadata>),
+    HandAuthoredSmithyRs(HandAuthoredEntry<SmithyRsMetadata>),
     AwsSdkModel(SdkModelEntry),
 }
 
 impl ChangelogEntry {
-    pub fn hand_authored(&self) -> Option<&HandAuthoredEntry> {
+    pub fn hand_authored_aws_sdk(&self) -> Option<&HandAuthoredEntry<AwsMetadata>> {
         match self {
-            ChangelogEntry::HandAuthored(hand_authored) => Some(hand_authored),
+            ChangelogEntry::HandAuthoredAwsSdk(hand_authored) => Some(hand_authored),
+            _ => None,
+        }
+    }
+
+    pub fn hand_authored_smithy_rs(&self) -> Option<&HandAuthoredEntry<SmithyRsMetadata>> {
+        match self {
+            ChangelogEntry::HandAuthoredSmithyRs(hand_authored) => Some(hand_authored),
             _ => None,
         }
     }

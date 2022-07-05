@@ -9,7 +9,7 @@ use clap::Parser;
 use ordinal::Ordinal;
 use serde::Serialize;
 use smithy_rs_tool_common::changelog::{
-    Changelog, HandAuthoredEntry, Reference, SdkModelChangeKind, SdkModelEntry, SdkAffected
+    Changelog, HandAuthoredEntry, Reference, SdkModelChangeKind, SdkModelEntry, SdkAffected, SmithyRsMetadata, AwsMetadata, ChangeEntryMetadata
 };
 use smithy_rs_tool_common::git::{find_git_repository_root, Git, GitCLI};
 use std::env;
@@ -80,7 +80,6 @@ pub struct RenderArgs {
 
 pub fn subcommand_render(args: &RenderArgs) -> Result<()> {
     let now = args.date_override.unwrap_or_else(OffsetDateTime::now_utc);
-
     let current_dir = env::current_dir()?;
     let repo_root: PathBuf = find_git_repository_root(
         "smithy-rs",
@@ -217,7 +216,7 @@ fn to_md_link(reference: &Reference) -> String {
 ///
 /// Example output:
 /// `- Add a feature (smithy-rs#123, @contributor)`
-fn render_entry(entry: &HandAuthoredEntry, mut out: &mut String) {
+fn render_entry<T : ChangeEntryMetadata>(entry: &HandAuthoredEntry<T>, mut out: &mut String) {
     let mut meta = String::new();
     if entry.meta.bug {
         meta.push('🐛');
@@ -294,7 +293,7 @@ fn update_changelogs(
     Ok(())
 }
 
-fn render_aws_rust(args : &RenderArgs, entries : &[ChangelogEntry], release_metadata : &ReleaseMetadata) -> Result<()> {
+fn render_aws_rust(args : &RenderArgs, entries : &[&ChangelogEntry], release_metadata : &ReleaseMetadata) -> Result<()> {
     let (release_header, release_notes) = render(entries, &release_metadata.title);
     if let Some(output_path) = &args.release_manifest_output {
         write_release_manifest(output_path, release_metadata, &release_notes)?
@@ -303,7 +302,7 @@ fn render_aws_rust(args : &RenderArgs, entries : &[ChangelogEntry], release_meta
     Ok(())
 }
 
-fn render_smithy_rs(args: &RenderArgs, entries: &[ChangelogEntry], release_metadata: &ReleaseMetadata) -> Result<()> {
+fn render_smithy_rs(args: &RenderArgs, entries: &[&SmithyRsChangelogEntry], release_metadata: &ReleaseMetadata) -> Result<()> {
     let server_output_path = args.server_changelog_output.as_ref()
             .ok_or_else(|| anyhow::Error::msg(format!("server sdk output path has not been supplied")))?;
     let (client_entries, server_entries) = partition_entries(entries);
@@ -340,27 +339,28 @@ fn render_smithy_rs(args: &RenderArgs, entries: &[ChangelogEntry], release_metad
 
 /// partitions given list into client and server, while keeping SdkAffected::Both 
 /// a member of both of them
-fn partition_entries(entries : &[ChangelogEntry]) -> (Vec<ChangelogEntry>, Vec<ChangelogEntry>) {
-    let mut client_entries = Vec::<ChangelogEntry>::new();
-    let mut server_entries = Vec::<ChangelogEntry>::new();
+fn partition_entries<'a>(entries : &[&'a SmithyRsChangelogEntry]) -> (Vec<&'a SmithyRsChangelogEntry>, Vec<&'a SmithyRsChangelogEntry>) 
+{
+    let mut client_entries = Vec::<&SmithyRsChangelogEntry>::new();
+    let mut server_entries = Vec::<&SmithyRsChangelogEntry>::new();
     // separate entries between client and server, keeping those that affect both SDKs in each
     for entry in entries {
         match entry {
             ChangelogEntry::AwsSdkModel(_) => {
-                client_entries.push(entry.clone());
-                server_entries.push(entry.clone());
+                client_entries.push(entry);
+                server_entries.push(entry);
             }
             ChangelogEntry::HandAuthored(hand_entry) => {
                 match hand_entry.meta.sdk.unwrap_or_default() {
                     SdkAffected::Both => {
-                        client_entries.push(entry.clone());
-                        server_entries.push(entry.clone());
+                        client_entries.push(entry);
+                        server_entries.push(entry);
                     },
                     SdkAffected::Client => {
-                        client_entries.push(entry.clone());
+                        client_entries.push(entry);
                     },
                     SdkAffected::Server => {
-                        server_entries.push(entry.clone());
+                        server_entries.push(entry);
                     }
                 }
             }
@@ -401,7 +401,7 @@ fn write_changelog_md(release_header : &String, release_notes: &String, changelo
     Ok(current)
 }
 
-fn render_handauthored<'a>(entries: impl Iterator<Item = &'a HandAuthoredEntry>, out: &mut String) {
+fn render_handauthored<'a, T : 'a + ChangeEntryMetadata>(entries: impl Iterator<Item = &'a HandAuthoredEntry<T>>, out: &mut String) {
     let (breaking, non_breaking) = entries.partition::<Vec<_>, _>(|entry| entry.meta.breaking);
 
     if !breaking.is_empty() {
