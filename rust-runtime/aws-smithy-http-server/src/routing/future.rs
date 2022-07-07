@@ -36,13 +36,19 @@
 use crate::body::BoxBody;
 use futures_util::future::Either;
 use http::{Request, Response};
-use std::{convert::Infallible, future::ready};
-use tower::util::Oneshot;
+use std::{
+    convert::Infallible,
+    future::Future,
+    future::{ready, Ready},
+    pin::Pin,
+    task::{Context, Poll},
+};
+use tower::{util::Oneshot, Service};
 
 pub use super::{into_make_service::IntoMakeService, route::RouteFuture};
 
 type OneshotRoute<B> = Oneshot<super::Route<B>, Request<B>>;
-type ReadyResponse = std::future::Ready<Result<Response<BoxBody>, Infallible>>;
+type ReadyResponse = Ready<Result<Response<BoxBody>, Infallible>>;
 
 opaque_future! {
     /// Response future for [`Router`](super::Router).
@@ -57,5 +63,45 @@ impl<B> RouterFuture<B> {
 
     pub(super) fn from_response(response: Response<BoxBody>) -> Self {
         Self::new(Either::Right(ready(Ok(response))))
+    }
+}
+
+pin_project_lite::pin_project! {
+    pub struct RouterFuture2<S, B> where S: Service<Request<B>> {
+        #[pin]
+        inner: Either<Oneshot<S, Request<B>>, Ready<Result<S::Response, S::Error>>>
+    }
+}
+
+impl<S, B> From<Oneshot<S, Request<B>>> for RouterFuture2<S, B>
+where
+    S: Service<Request<B>>,
+{
+    fn from(value: Oneshot<S, Request<B>>) -> Self {
+        Self {
+            inner: Either::Left(value),
+        }
+    }
+}
+
+impl<S, B> From<Response<BoxBody>> for RouterFuture2<S, B>
+where
+    S: Service<Request<B>, Response = Response<BoxBody>>,
+{
+    fn from(value: Response<BoxBody>) -> Self {
+        Self {
+            inner: Either::Right(ready(Ok(value))),
+        }
+    }
+}
+
+impl<S, B> Future for RouterFuture2<S, B>
+where
+    S: Service<Request<B>>,
+{
+    type Output = <S::Future as Future>::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.project().inner.poll(cx)
     }
 }

@@ -30,6 +30,7 @@ mod into_make_service;
 pub mod request_spec;
 
 mod route;
+mod routers;
 mod tiny_map;
 
 pub use self::{future::RouterFuture, into_make_service::IntoMakeService, route::Route};
