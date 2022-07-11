@@ -1,23 +1,23 @@
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package software.amazon.smithy.rustsdk
 
 import software.amazon.smithy.rust.codegen.rustlang.rustTemplate
 import software.amazon.smithy.rust.codegen.rustlang.writable
-import software.amazon.smithy.rust.codegen.smithy.CodegenContext
+import software.amazon.smithy.rust.codegen.smithy.ClientCodegenContext
 import software.amazon.smithy.rust.codegen.smithy.customize.RustCodegenDecorator
 import software.amazon.smithy.rust.codegen.smithy.generators.config.ConfigCustomization
 import software.amazon.smithy.rust.codegen.smithy.generators.config.ServiceConfig
 
-class DefaultMiddlewareHelperDecorator : RustCodegenDecorator {
+class DefaultMiddlewareHelperDecorator : RustCodegenDecorator<ClientCodegenContext> {
     override val name: String = "DefaultMiddlewareHelper"
     override val order: Byte = 10
 
     override fun configCustomizations(
-        codegenContext: CodegenContext,
+        codegenContext: ClientCodegenContext,
         baseCustomizations: List<ConfigCustomization>
     ): List<ConfigCustomization> {
         return baseCustomizations + DefaultMiddlewareHelperCustomization()

@@ -312,8 +312,6 @@ class FluentClientGenerator(
     private val clientDep = CargoDependency.SmithyClient(coreCodegenContext.runtimeConfig)
     private val runtimeConfig = coreCodegenContext.runtimeConfig
     private val core = FluentClientCore(model)
-
-    private val clientDep = CargoDependency.SmithyClient(codegenContext.runtimeConfig)
     private val tokioDep = CargoDependency.Tokio.withFeature("sync")
 
     private val connectorKey = RuntimeType("ConnectorKey", clientDep, "aws_smithy_client::http_connector")

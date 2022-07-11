@@ -14,7 +14,6 @@ import software.amazon.smithy.rust.codegen.smithy.customizations.CrateVersionGen
 import software.amazon.smithy.rust.codegen.smithy.customizations.EndpointPrefixGenerator
 import software.amazon.smithy.rust.codegen.smithy.customizations.HttpChecksumRequiredGenerator
 import software.amazon.smithy.rust.codegen.smithy.customizations.HttpVersionListCustomization
-import software.amazon.smithy.rust.codegen.smithy.customizations.HttpVersionListGenerator
 import software.amazon.smithy.rust.codegen.smithy.customizations.IdempotencyTokenGenerator
 import software.amazon.smithy.rust.codegen.smithy.customizations.MakeConnectorSettingsFromConfigGenerator
 import software.amazon.smithy.rust.codegen.smithy.customizations.SmithyTypesPubUseGenerator
@@ -42,12 +41,12 @@ class RequiredCustomizations : RustCodegenDecorator<ClientCodegenContext> {
             HttpVersionListCustomization(codegenContext, operation)
 
     override fun configCustomizations(
-        codegenContext: CodegenContext,
+        codegenContext: ClientCodegenContext,
         baseCustomizations: List<ConfigCustomization>
     ): List<ConfigCustomization> {
         return baseCustomizations + MakeConnectorSettingsFromConfigGenerator(codegenContext.runtimeConfig)
     }
-    
+
     override fun libRsCustomizations(
         codegenContext: ClientCodegenContext,
         baseCustomizations: List<LibRsCustomization>
