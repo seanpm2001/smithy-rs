@@ -1,6 +1,6 @@
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package software.amazon.smithy.rust.codegen.smithy.protocols
@@ -20,7 +20,7 @@ import software.amazon.smithy.rust.codegen.rustlang.rustBlockTemplate
 import software.amazon.smithy.rust.codegen.rustlang.rustTemplate
 import software.amazon.smithy.rust.codegen.rustlang.withBlock
 import software.amazon.smithy.rust.codegen.rustlang.writable
-import software.amazon.smithy.rust.codegen.smithy.CodegenContext
+import software.amazon.smithy.rust.codegen.smithy.CoreCodegenContext
 import software.amazon.smithy.rust.codegen.smithy.RuntimeType
 import software.amazon.smithy.rust.codegen.smithy.generators.StructureGenerator
 import software.amazon.smithy.rust.codegen.smithy.generators.builderSymbol
@@ -41,28 +41,28 @@ import software.amazon.smithy.rust.codegen.util.outputShape
 import software.amazon.smithy.rust.codegen.util.toSnakeCase
 
 class HttpBoundProtocolGenerator(
-    codegenContext: CodegenContext,
+    coreCodegenContext: CoreCodegenContext,
     protocol: Protocol,
 ) : ProtocolGenerator(
-    codegenContext,
+    coreCodegenContext,
     protocol,
     MakeOperationGenerator(
-        codegenContext,
+        coreCodegenContext,
         protocol,
-        HttpBoundProtocolPayloadGenerator(codegenContext, protocol),
+        HttpBoundProtocolPayloadGenerator(coreCodegenContext, protocol),
         public = true,
         includeDefaultPayloadHeaders = true
     ),
-    HttpBoundProtocolTraitImplGenerator(codegenContext, protocol),
+    HttpBoundProtocolTraitImplGenerator(coreCodegenContext, protocol),
 )
 
 class HttpBoundProtocolTraitImplGenerator(
-    private val codegenContext: CodegenContext,
+    private val coreCodegenContext: CoreCodegenContext,
     private val protocol: Protocol,
 ) : ProtocolTraitImplGenerator {
-    private val symbolProvider = codegenContext.symbolProvider
-    private val model = codegenContext.model
-    private val runtimeConfig = codegenContext.runtimeConfig
+    private val symbolProvider = coreCodegenContext.symbolProvider
+    private val model = coreCodegenContext.model
+    private val runtimeConfig = coreCodegenContext.runtimeConfig
     private val httpBindingResolver = protocol.httpBindingResolver
     private val operationDeserModule = RustModule.private("operation_deser")
 
@@ -149,7 +149,7 @@ class HttpBoundProtocolTraitImplGenerator(
         )
     }
 
-    fun parseError(operationShape: OperationShape): RuntimeType {
+    private fun parseError(operationShape: OperationShape): RuntimeType {
         val fnName = "parse_${operationShape.id.name.toSnakeCase()}_error"
         val outputShape = operationShape.outputShape(model)
         val outputSymbol = symbolProvider.toSymbol(outputShape)
@@ -247,7 +247,7 @@ class HttpBoundProtocolTraitImplGenerator(
         }
     }
 
-    fun parseResponse(operationShape: OperationShape): RuntimeType {
+    private fun parseResponse(operationShape: OperationShape): RuntimeType {
         val fnName = "parse_${operationShape.id.name.toSnakeCase()}_response"
         val outputShape = operationShape.outputShape(model)
         val outputSymbol = symbolProvider.toSymbol(outputShape)
@@ -278,7 +278,7 @@ class HttpBoundProtocolTraitImplGenerator(
         bindings: List<HttpBindingDescriptor>,
         errorSymbol: RuntimeType,
     ) {
-        val httpBindingGenerator = ResponseBindingGenerator(protocol, codegenContext, operationShape)
+        val httpBindingGenerator = ResponseBindingGenerator(protocol, coreCodegenContext, operationShape)
         val structuredDataParser = protocol.structuredDataParser(operationShape)
         Attribute.AllowUnusedMut.render(this)
         rust("let mut output = #T::default();", outputShape.builderSymbol(symbolProvider))
@@ -350,7 +350,6 @@ class HttpBoundProtocolTraitImplGenerator(
                     rust("#T($body).map_err(#T::unhandled)", structuredDataParser.payloadParser(member), errorSymbol)
                 }
                 val deserializer = httpBindingGenerator.generateDeserializePayloadFn(
-                    operationShape,
                     binding,
                     errorSymbol,
                     payloadParser = payloadParser

@@ -1,6 +1,6 @@
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package software.amazon.smithy.rust.codegen.smithy.protocols.parse
@@ -37,15 +37,15 @@ import software.amazon.smithy.rust.codegen.rustlang.rustBlockTemplate
 import software.amazon.smithy.rust.codegen.rustlang.rustTemplate
 import software.amazon.smithy.rust.codegen.rustlang.withBlock
 import software.amazon.smithy.rust.codegen.rustlang.withBlockTemplate
-import software.amazon.smithy.rust.codegen.smithy.CodegenContext
+import software.amazon.smithy.rust.codegen.smithy.CoreCodegenContext
 import software.amazon.smithy.rust.codegen.smithy.RuntimeType
 import software.amazon.smithy.rust.codegen.smithy.generators.StructureGenerator
 import software.amazon.smithy.rust.codegen.smithy.generators.UnionGenerator
 import software.amazon.smithy.rust.codegen.smithy.generators.builderSymbol
 import software.amazon.smithy.rust.codegen.smithy.generators.renderUnknownVariant
 import software.amazon.smithy.rust.codegen.smithy.generators.setterName
-import software.amazon.smithy.rust.codegen.smithy.isBoxed
 import software.amazon.smithy.rust.codegen.smithy.isOptional
+import software.amazon.smithy.rust.codegen.smithy.isRustBoxed
 import software.amazon.smithy.rust.codegen.smithy.protocols.XmlMemberIndex
 import software.amazon.smithy.rust.codegen.smithy.protocols.XmlNameIndex
 import software.amazon.smithy.rust.codegen.smithy.protocols.deserializeFunctionName
@@ -66,7 +66,7 @@ data class OperationWrapperContext(
 )
 
 class XmlBindingTraitParserGenerator(
-    codegenContext: CodegenContext,
+    coreCodegenContext: CoreCodegenContext,
     private val xmlErrors: RuntimeType,
     private val writeOperationWrapper: RustWriter.(OperationWrapperContext, OperationInnerWriteable) -> Unit,
 ) : StructuredDataParserGenerator {
@@ -92,12 +92,12 @@ class XmlBindingTraitParserGenerator(
      */
     data class Ctx(val tag: String, val accum: String?)
 
-    private val symbolProvider = codegenContext.symbolProvider
-    private val smithyXml = CargoDependency.smithyXml(codegenContext.runtimeConfig).asType()
+    private val symbolProvider = coreCodegenContext.symbolProvider
+    private val smithyXml = CargoDependency.smithyXml(coreCodegenContext.runtimeConfig).asType()
     private val xmlError = smithyXml.member("decode::XmlError")
 
     private val scopedDecoder = smithyXml.member("decode::ScopedDecoder")
-    private val runtimeConfig = codegenContext.runtimeConfig
+    private val runtimeConfig = coreCodegenContext.runtimeConfig
 
     // The symbols we want all the time
     private val codegenScope = arrayOf(
@@ -109,10 +109,10 @@ class XmlBindingTraitParserGenerator(
         "ScopedDecoder" to scopedDecoder,
         "aws_smithy_types" to CargoDependency.SmithyTypes(runtimeConfig).asType()
     )
-    private val model = codegenContext.model
+    private val model = coreCodegenContext.model
     private val index = HttpBindingIndex.of(model)
     private val xmlIndex = XmlNameIndex.of(model)
-    private val mode = codegenContext.mode
+    private val target = coreCodegenContext.target
     private val xmlDeserModule = RustModule.private("xml_deser")
 
     /**
@@ -141,7 +141,6 @@ class XmlBindingTraitParserGenerator(
                 val shapeName = XmlName(xmlIndex.payloadShapeName(member))
                 rustTemplate(
                     """
-                    use std::convert::TryFrom;
                     let mut doc = #{Document}::try_from(inp)?;
                     ##[allow(unused_mut)]
                     let mut decoder = doc.root_element()?;
@@ -190,7 +189,6 @@ class XmlBindingTraitParserGenerator(
             ) {
                 rustTemplate(
                     """
-                    use std::convert::TryFrom;
                     let mut doc = #{Document}::try_from(inp)?;
 
                     ##[allow(unused_mut)]
@@ -226,7 +224,6 @@ class XmlBindingTraitParserGenerator(
                 if (members.isNotEmpty()) {
                     rustTemplate(
                         """
-                        use std::convert::TryFrom;
                         let mut document = #{Document}::try_from(inp)?;
                         ##[allow(unused_mut)]
                         let mut error_decoder = #{xml_errors}::error_scope(&mut document)?;
@@ -258,7 +255,6 @@ class XmlBindingTraitParserGenerator(
             ) {
                 rustTemplate(
                     """
-                    use std::convert::TryFrom;
                     let mut doc = #{Document}::try_from(inp)?;
 
                     ##[allow(unused_mut)]
@@ -356,7 +352,7 @@ class XmlBindingTraitParserGenerator(
         val target = model.expectShape(memberShape.target)
         val symbol = symbolProvider.toSymbol(memberShape)
         conditionalBlock("Some(", ")", forceOptional || symbol.isOptional()) {
-            conditionalBlock("Box::new(", ")", symbol.isBoxed()) {
+            conditionalBlock("Box::new(", ")", symbol.isRustBoxed()) {
                 when (target) {
                     is StringShape, is BooleanShape, is NumberShape, is TimestampShape, is BlobShape ->
                         parsePrimitiveInner(memberShape) {
@@ -434,7 +430,7 @@ class XmlBindingTraitParserGenerator(
                             rust("base = Some(#T::$variantName(tmp));", symbol)
                         }
                     }
-                    when (mode.renderUnknownVariant()) {
+                    when (target.renderUnknownVariant()) {
                         true -> rust("_unknown => base = Some(#T::${UnionGenerator.UnknownVariantName}),", symbol)
                         false -> rustTemplate("""variant => return Err(#{XmlError}::custom(format!("unexpected union variant: {:?}", variant)))""", *codegenScope)
                     }

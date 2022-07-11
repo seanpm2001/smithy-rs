@@ -1,6 +1,6 @@
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package software.amazon.smithy.rust.codegen.smithy
@@ -41,13 +41,21 @@ class StreamingShapeSymbolProvider(private val base: RustSymbolProvider, private
 
         // We are only targeting streaming blobs
         return if (target is BlobShape && shape.isStreaming(model)) {
-            RuntimeType.byteStream(config().runtimeConfig).toSymbol().toBuilder().setDefault(Default.RustDefault).build()
+            RuntimeType.ByteStream(config().runtimeConfig).toSymbol().toBuilder().setDefault(Default.RustDefault).build()
         } else {
             base.toSymbol(shape)
         }
     }
 }
 
+/**
+ * SymbolProvider to drop the clone and PartialEq bounds in streaming shapes
+ *
+ * Streaming shapes cannot be cloned and equality cannot be checked without reading the body. Because of this, these shapes
+ * do not implement `Clone` or `PartialEq`.
+ *
+ * Note that since streaming members can only be used on the root shape, this can only impact input and output shapes.
+ */
 class StreamingShapeMetadataProvider(private val base: RustSymbolProvider, private val model: Model) : SymbolMetadataProvider(base) {
     override fun memberMeta(memberShape: MemberShape): RustMetadata {
         return base.toSymbol(memberShape).expectRustMetadata()

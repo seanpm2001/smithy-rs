@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-# SPDX-License-Identifier: Apache-2.0.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 # This script contains additional CI checks to run for this specific package
@@ -12,4 +12,4 @@ echo "### Checking for duplicate dependency versions in the normal dependency gr
 cargo tree -d --edges normal --all-features
 
 echo "### Running api-linter"
-cargo +nightly-2022-03-03 api-linter --all-features
+cargo "+${RUST_NIGHTLY_VERSION}" api-linter --all-features

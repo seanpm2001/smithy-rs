@@ -1,6 +1,6 @@
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package software.amazon.smithy.rust.codegen.smithy.generators.config
@@ -87,6 +87,7 @@ internal class ServiceConfigGeneratorTest {
                     ServiceConfig.BuilderStruct -> writable { rust("config_field: Option<u64>") }
                     ServiceConfig.BuilderImpl -> emptySection
                     ServiceConfig.BuilderBuild -> writable { rust("config_field: self.config_field.unwrap_or_default(),") }
+                    else -> emptySection
                 }
             }
         }

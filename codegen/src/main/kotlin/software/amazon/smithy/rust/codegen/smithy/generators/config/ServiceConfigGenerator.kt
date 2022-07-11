@@ -1,6 +1,6 @@
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package software.amazon.smithy.rust.codegen.smithy.generators.config
@@ -15,7 +15,7 @@ import software.amazon.smithy.rust.codegen.rustlang.docs
 import software.amazon.smithy.rust.codegen.rustlang.raw
 import software.amazon.smithy.rust.codegen.rustlang.rustBlock
 import software.amazon.smithy.rust.codegen.rustlang.rustTemplate
-import software.amazon.smithy.rust.codegen.smithy.CodegenContext
+import software.amazon.smithy.rust.codegen.smithy.CoreCodegenContext
 import software.amazon.smithy.rust.codegen.smithy.customize.NamedSectionGenerator
 import software.amazon.smithy.rust.codegen.smithy.customize.Section
 import software.amazon.smithy.rust.codegen.util.hasTrait
@@ -78,6 +78,11 @@ sealed class ServiceConfig(name: String) : Section(name) {
     object BuilderBuild : ServiceConfig("BuilderBuild")
 
     /**
+     * A section for extra functionality that needs to be defined with the config module
+     */
+    object Extras : ServiceConfig("Extras")
+
+    /**
      * Section where various trait implementations of a config or builder struct will be placed
      */
     object TraitImpls : ServiceConfig("TraitImpls")
@@ -111,9 +116,9 @@ typealias ConfigCustomization = NamedSectionGenerator<ServiceConfig>
 class ServiceConfigGenerator(private val customizations: List<ConfigCustomization> = listOf()) {
 
     companion object {
-        fun withBaseBehavior(codegenContext: CodegenContext, extraCustomizations: List<ConfigCustomization>): ServiceConfigGenerator {
+        fun withBaseBehavior(coreCodegenContext: CoreCodegenContext, extraCustomizations: List<ConfigCustomization>): ServiceConfigGenerator {
             val baseFeatures = mutableListOf<ConfigCustomization>()
-            if (codegenContext.serviceShape.needsIdempotencyToken(codegenContext.model)) {
+            if (coreCodegenContext.serviceShape.needsIdempotencyToken(coreCodegenContext.model)) {
                 baseFeatures.add(IdempotencyTokenProviderCustomization())
             }
             return ServiceConfigGenerator(baseFeatures + extraCustomizations)
@@ -131,7 +136,7 @@ class ServiceConfigGenerator(private val customizations: List<ConfigCustomizatio
             }
         }
 
-        // Custom implementation for `Debug` so we don't need to enforce `Debug` down the chain
+        // Custom implementation for Debug so we don't need to enforce Debug down the chain
         writer.rustBlock("impl std::fmt::Debug for Config") {
             rustTemplate(
                 """
@@ -176,6 +181,9 @@ class ServiceConfigGenerator(private val customizations: List<ConfigCustomizatio
                     }
                 }
             }
+        }
+        customizations.forEach {
+            it.section(ServiceConfig.Extras)(writer)
         }
         customizations.forEach {
             it.section(ServiceConfig.TraitImpls)(writer)

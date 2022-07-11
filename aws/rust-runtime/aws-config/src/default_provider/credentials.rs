@@ -1,6 +1,6 @@
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 use std::borrow::Cow;
@@ -85,7 +85,7 @@ impl ProvideCredentials for DefaultCredentialsChain {
 }
 
 /// Builder for [`DefaultCredentialsChain`](DefaultCredentialsChain)
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Builder {
     profile_file_builder: crate::profile::credentials::Builder,
     web_identity_builder: crate::web_identity_token::Builder,
@@ -320,6 +320,7 @@ mod test {
     make_test!(web_identity_token_profile);
     make_test!(profile_name);
     make_test!(profile_overrides_web_identity);
+    make_test!(environment_variables_blank);
     make_test!(imds_token_fail);
 
     make_test!(imds_no_iam_role);
@@ -332,6 +333,7 @@ mod test {
 
     make_test!(ecs_assume_role);
     make_test!(ecs_credentials);
+    make_test!(ecs_credentials_invalid_profile);
 
     make_test!(sso_assume_role);
     make_test!(sso_no_token_file);

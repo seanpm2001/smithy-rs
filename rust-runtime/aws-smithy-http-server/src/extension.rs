@@ -1,6 +1,6 @@
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 // This code was copied and then modified from Tokio's Axum.
@@ -48,8 +48,9 @@
 //!
 //! [extensions]: https://docs.rs/http/latest/http/struct.Extensions.html
 
-use axum_core::extract::RequestParts;
 use std::ops::Deref;
+
+use crate::request::RequestParts;
 
 /// Extension type used to store information about Smithy operations in HTTP responses.
 /// This extension type is set when it has been correctly determined that the request should be
@@ -72,6 +73,16 @@ impl OperationExtension {
         }
     }
 
+    /// Returns the Smithy model namespace.
+    pub fn namespace(&self) -> &'static str {
+        self.namespace
+    }
+
+    /// Returns the Smithy operation name.
+    pub fn operation_name(&self) -> &'static str {
+        self.operation_name
+    }
+
     /// Returns the current operation formatted as `<namespace>#<operation_name>`.
     pub fn operation(&self) -> String {
         format!("{}#{}", self.namespace, self.operation_name)
@@ -82,7 +93,21 @@ impl OperationExtension {
 /// These are modeled errors, defined in the Smithy model.
 #[derive(Debug, Clone)]
 pub struct ModeledErrorExtension(&'static str);
-impl_extension_new_and_deref!(ModeledErrorExtension);
+
+impl ModeledErrorExtension {
+    /// Creates a new `ModeledErrorExtension`.
+    pub fn new(value: &'static str) -> ModeledErrorExtension {
+        ModeledErrorExtension(value)
+    }
+}
+
+impl Deref for ModeledErrorExtension {
+    type Target = &'static str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 /// Extension type used to store the _name_ of the [`crate::runtime_error::RuntimeError`] that
 /// occurred during request handling (see [`crate::runtime_error::RuntimeErrorKind::name`]).

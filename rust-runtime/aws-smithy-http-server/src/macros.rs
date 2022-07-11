@@ -1,6 +1,6 @@
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 // This code was copied and then modified from Tokio's Axum.
@@ -83,33 +83,6 @@ macro_rules! opaque_future {
 }
 
 pub use opaque_future;
-
-/// Implements `Deref` for all `Extension` holding a `&'static, str`.
-macro_rules! impl_deref {
-    ($name:ident) => {
-        impl Deref for $name {
-            type Target = &'static str;
-
-            fn deref(&self) -> &Self::Target {
-                &self.0
-            }
-        }
-    };
-}
-
-/// Implements `new` for all `Extension` holding a `&'static, str`.
-macro_rules! impl_extension_new_and_deref {
-    ($name:ident) => {
-        impl $name {
-            #[doc = concat!("Returns a new `", stringify!($name), "`.")]
-            pub fn new(value: &'static str) -> $name {
-                $name(value)
-            }
-        }
-
-        impl_deref!($name);
-    };
-}
 
 macro_rules! convert_to_request_rejection {
     ($from:ty, $to:ident) => {

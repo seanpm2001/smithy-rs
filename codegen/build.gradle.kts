@@ -1,12 +1,14 @@
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0.
+ * SPDX-License-Identifier: Apache-2.0
  */
+
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+
 plugins {
     kotlin("jvm")
     id("org.jetbrains.dokka")
     jacoco
-    maven
     `maven-publish`
 }
 
@@ -82,6 +84,10 @@ tasks.test {
     useJUnitPlatform()
     testLogging {
         events("passed", "skipped", "failed")
+        exceptionFormat = TestExceptionFormat.FULL
+        showCauses = true
+        showExceptions = true
+        showStackTraces = true
         showStandardStreams = true
     }
 }
@@ -113,9 +119,5 @@ publishing {
             artifact(sourcesJar)
         }
     }
-    repositories {
-        maven {
-            url = uri("$buildDir/repository")
-        }
-    }
+    repositories { maven { url = uri("$buildDir/repository") } }
 }
