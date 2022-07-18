@@ -5,8 +5,18 @@ SERVER_SDK_DST := $(CUR_DIR)/pokemon_service_sdk
 CLIENT_SDK_DST := $(CUR_DIR)/pokemon_service_client
 SERVER_SDK_SRC := $(SRC_DIR)/codegen-server-test/python/build/smithyprojections/codegen-server-test-python/pokemon_service_sdk/rust-server-codegen-python
 CLIENT_SDK_SRC := $(SRC_DIR)/codegen-test/build/smithyprojections/codegen-test/pokemon_service_client/rust-codegen
-DEBUG_SHARED_LIBRARY_SRC := $(SRC_DIR)/target/debug/libpokemon_service_sdk.so
-RELEASE_SHARED_LIBRARY_SRC := $(SRC_DIR)/target/release/libpokemon_service_sdk.so
+
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+	#DEBUG_SHARED_LIBRARY_SRC := $(SRC_DIR)/target/debug/libpokemon_service_sdk.dylib
+	#RELEASE_SHARED_LIBRARY_SRC := $(SRC_DIR)/target/release/libpokemon_service_sdk.dylib
+	DEBUG_SHARED_LIBRARY_SRC := $(SRC_DIR)/target/debug/libpokemon_service_sdk.so
+	RELEASE_SHARED_LIBRARY_SRC := $(SRC_DIR)/target/release/libpokemon_service_sdk.so
+else
+	DEBUG_SHARED_LIBRARY_SRC := $(SRC_DIR)/target/debug/libpokemon_service_sdk.so
+	RELEASE_SHARED_LIBRARY_SRC := $(SRC_DIR)/target/release/libpokemon_service_sdk.so
+endif
+
 
 all: codegen
 
