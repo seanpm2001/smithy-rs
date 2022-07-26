@@ -8,7 +8,13 @@ description = "A smithy Rust service to retrieve information about Pokémon."
 
 [dependencies]
 async-stream = "0.3"
+aws-config = "0.46"
+aws-sdk-config = "0.16"
+aws-sdk-kms = "0.16"
+aws-types = "0.46"
 clap = { version = "~3.2.1", features = ["derive"] }
+futures = "0.3"
+http = "0.2"
 hyper = {version = "0.14", features = ["server"] }
 rand = "0.8"
 tokio = "1"
@@ -16,6 +22,7 @@ tower = "0.4"
 tower-http = { version = "0.3", features = ["trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+url = "2.2"
 
 # Local paths
 aws-smithy-http-server = { path = "../../" }
