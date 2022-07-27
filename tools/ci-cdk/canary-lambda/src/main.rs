@@ -47,6 +47,7 @@ mod canary;
 mod s3_canary;
 canary_module!(paginator_canary, since: "v0.4.1");
 mod transcribe_canary;
+canary_module!(checksum_canary, since: "v0.46.0");
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
