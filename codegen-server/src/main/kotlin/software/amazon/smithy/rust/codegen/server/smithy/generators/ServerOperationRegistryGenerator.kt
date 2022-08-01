@@ -317,10 +317,12 @@ ${operationImplementationStubs(operations)}
                         "RequestSpec" to operation.requestSpec(),
                     )
                 }
+//                "RuntimeErrorIntoResponse" to protocol.serverRuntimeErrorToResponseConverter(),
+                val runtimeErrorIntoResponseConverter = protocol.serverRuntimeErrorIntoResponseConverter().toSymbol().fullName
 
                 withBlockTemplate(
                     "#{Router}::${protocol.serverRouterRuntimeConstructor()}(vec![",
-                    "])",
+                    "], Box::new($runtimeErrorIntoResponseConverter))",
                     *codegenScope,
                 ) {
                     requestSpecsVarNames.zip(operationNames).forEach { (requestSpecVarName, operationName) ->

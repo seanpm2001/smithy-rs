@@ -79,7 +79,7 @@ open class ServerServiceGenerator(
 
     // Render operations handler.
     open fun renderOperationHandler(writer: RustWriter, operations: List<OperationShape>) {
-        ServerOperationHandlerGenerator(coreCodegenContext, operations).render(writer)
+        ServerOperationHandlerGenerator(coreCodegenContext, protocol, operations).render(writer)
     }
 
     // Render operations registry.

@@ -30,6 +30,7 @@ object ServerRuntimeType {
     fun OperationHandler(runtimeConfig: RuntimeConfig) =
         forInlineDependency(ServerInlineDependency.serverOperationHandler(runtimeConfig))
 
+    // TODO Use the one in `RuntimeType`.
     fun RuntimeError(runtimeConfig: RuntimeConfig) =
         RuntimeType("RuntimeError", ServerCargoDependency.SmithyHttpServer(runtimeConfig), "${runtimeConfig.crateSrcPrefix}_http_server::runtime_error")
 

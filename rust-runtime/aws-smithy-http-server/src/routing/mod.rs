@@ -11,8 +11,7 @@ use self::request_spec::RequestSpec;
 use self::tiny_map::TinyMap;
 use crate::body::{boxed, Body, BoxBody, HttpBody};
 use crate::error::BoxError;
-use crate::protocols::Protocol;
-use crate::runtime_error::{RuntimeError, RuntimeErrorKind};
+use crate::runtime_error::RuntimeError;
 use http::{Request, Response, StatusCode};
 use std::{
     convert::Infallible,
@@ -34,6 +33,8 @@ mod tiny_map;
 
 pub use self::{future::RouterFuture, into_make_service::IntoMakeService, route::Route};
 
+type RuntimeErrorFn = Box<dyn Fn(RuntimeError) -> http::Response<BoxBody>>;
+
 /// The router is a [`tower::Service`] that routes incoming requests to other `Service`s
 /// based on the request's URI and HTTP method or on some specific header setting the target operation.
 /// The former is adhering to the [Smithy specification], while the latter is adhering to
@@ -54,9 +55,15 @@ pub use self::{future::RouterFuture, into_make_service::IntoMakeService, route::
 /// [awsJson1.0]: https://awslabs.github.io/smithy/1.0/spec/aws/aws-json-1_0-protocol.html
 /// [awsJson1.1]: https://awslabs.github.io/smithy/1.0/spec/aws/aws-json-1_1-protocol.html
 /// [endpoint trait]: https://awslabs.github.io/smithy/1.0/spec/core/endpoint-traits.html#endpoint-trait
-#[derive(Debug)]
 pub struct Router<B = Body> {
     routes: Routes<B>,
+    runtime_error_fn: RuntimeErrorFn,
+}
+
+impl<B: std::fmt::Debug> std::fmt::Debug for Router<B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Router").field("routes", &self.routes).finish()
+    }
 }
 
 // This constant determines when the `TinyMap` implementation switches from being a `Vec` to a
@@ -79,42 +86,14 @@ enum Routes<B = Body> {
     AwsJson11(TinyMap<String, Route<B>, ROUTE_CUTOFF>),
 }
 
-impl<B> Clone for Router<B> {
-    fn clone(&self) -> Self {
-        match &self.routes {
-            Routes::RestJson1(routes) => Router {
-                routes: Routes::RestJson1(routes.clone()),
-            },
-            Routes::RestXml(routes) => Router {
-                routes: Routes::RestXml(routes.clone()),
-            },
-            Routes::AwsJson10(routes) => Router {
-                routes: Routes::AwsJson10(routes.clone()),
-            },
-            Routes::AwsJson11(routes) => Router {
-                routes: Routes::AwsJson11(routes.clone()),
-            },
-        }
-    }
-}
-
 impl<B> Router<B>
 where
     B: Send + 'static,
 {
     /// Return the correct, protocol-specific "Not Found" response for an unknown operation.
     fn unknown_operation(&self) -> RouterFuture<B> {
-        let protocol = match &self.routes {
-            Routes::RestJson1(_) => Protocol::RestJson1,
-            Routes::RestXml(_) => Protocol::RestXml,
-            Routes::AwsJson10(_) => Protocol::AwsJson10,
-            Routes::AwsJson11(_) => Protocol::AwsJson11,
-        };
-        let error = RuntimeError {
-            protocol,
-            kind: RuntimeErrorKind::UnknownOperation,
-        };
-        RouterFuture::from_response(error.into_response())
+        let error = RuntimeError::UnknownOperation;
+        RouterFuture::from_response((self.runtime_error_fn)(error))
     }
 
     /// Return the HTTP error response for non allowed method.
@@ -164,6 +143,7 @@ where
                     .collect();
                 Router {
                     routes: Routes::RestJson1(routes),
+                    runtime_error_fn: self.runtime_error_fn,
                 }
             }
             Routes::RestXml(routes) => {
@@ -173,6 +153,7 @@ where
                     .collect();
                 Router {
                     routes: Routes::RestXml(routes),
+                    runtime_error_fn: self.runtime_error_fn,
                 }
             }
             Routes::AwsJson10(routes) => {
@@ -182,6 +163,7 @@ where
                     .collect();
                 Router {
                     routes: Routes::AwsJson10(routes),
+                    runtime_error_fn: self.runtime_error_fn,
                 }
             }
             Routes::AwsJson11(routes) => {
@@ -191,6 +173,7 @@ where
                     .collect();
                 Router {
                     routes: Routes::AwsJson11(routes),
+                    runtime_error_fn: self.runtime_error_fn,
                 }
             }
         }
@@ -200,7 +183,7 @@ where
     ///
     /// If the iterator is empty the router will respond `404 Not Found` to all requests.
     #[doc(hidden)]
-    pub fn new_rest_json_router<T>(routes: T) -> Self
+    pub fn new_rest_json_router<T>(routes: T, runtime_error_fn: RuntimeErrorFn) -> Self
     where
         T: IntoIterator<
             Item = (
@@ -221,6 +204,7 @@ where
 
         Self {
             routes: Routes::RestJson1(routes),
+            runtime_error_fn,
         }
     }
 
@@ -228,7 +212,7 @@ where
     ///
     /// If the iterator is empty the router will respond `404 Not Found` to all requests.
     #[doc(hidden)]
-    pub fn new_rest_xml_router<T>(routes: T) -> Self
+    pub fn new_rest_xml_router<T>(routes: T, runtime_error_fn: RuntimeErrorFn) -> Self
     where
         T: IntoIterator<
             Item = (
@@ -249,6 +233,7 @@ where
 
         Self {
             routes: Routes::RestXml(routes),
+            runtime_error_fn,
         }
     }
 
@@ -256,7 +241,7 @@ where
     ///
     /// If the iterator is empty the router will respond `404 Not Found` to all requests.
     #[doc(hidden)]
-    pub fn new_aws_json_10_router<T>(routes: T) -> Self
+    pub fn new_aws_json_10_router<T>(routes: T, runtime_error_fn: RuntimeErrorFn) -> Self
     where
         T: IntoIterator<
             Item = (
@@ -272,6 +257,7 @@ where
 
         Self {
             routes: Routes::AwsJson10(routes),
+            runtime_error_fn,
         }
     }
 
@@ -279,7 +265,7 @@ where
     ///
     /// If the vector is empty the router will respond `404 Not Found` to all requests.
     #[doc(hidden)]
-    pub fn new_aws_json_11_router<T>(routes: T) -> Self
+    pub fn new_aws_json_11_router<T>(routes: T, runtime_error_fn: RuntimeErrorFn) -> Self
     where
         T: IntoIterator<
             Item = (
@@ -295,6 +281,7 @@ where
 
         Self {
             routes: Routes::AwsJson11(routes),
+            runtime_error_fn,
         }
     }
 }
@@ -364,6 +351,17 @@ where
             }
         }
     }
+}
+
+#[cfg(test)]
+fn return_404(_err: RuntimeError) -> http::Response<BoxBody> {
+    let status_code = http::StatusCode::NOT_FOUND;
+    let body = crate::body::to_boxed("");
+
+    let mut builder = http::Response::builder();
+    builder = builder.status(status_code);
+
+    builder.body(body).unwrap()
 }
 
 #[cfg(test)]
@@ -469,19 +467,27 @@ mod rest_tests {
             ),
         ];
 
+        let runtime_error_fn = return_404;
+
         // Test both RestJson1 and RestXml routers.
-        let router_json = Router::new_rest_json_router(request_specs.clone().into_iter().map(|(spec, svc_name)| {
-            (
-                tower::util::BoxCloneService::new(NamedEchoUriService(String::from(svc_name))),
-                spec,
-            )
-        }));
-        let router_xml = Router::new_rest_xml_router(request_specs.into_iter().map(|(spec, svc_name)| {
-            (
-                tower::util::BoxCloneService::new(NamedEchoUriService(String::from(svc_name))),
-                spec,
-            )
-        }));
+        let router_json = Router::new_rest_json_router(
+            request_specs.clone().into_iter().map(|(spec, svc_name)| {
+                (
+                    tower::util::BoxCloneService::new(NamedEchoUriService(String::from(svc_name))),
+                    spec,
+                )
+            }),
+            Box::new(runtime_error_fn),
+        );
+        let router_xml = Router::new_rest_xml_router(
+            request_specs.into_iter().map(|(spec, svc_name)| {
+                (
+                    tower::util::BoxCloneService::new(NamedEchoUriService(String::from(svc_name))),
+                    spec,
+                )
+            }),
+            Box::new(runtime_error_fn),
+        );
 
         for mut router in [router_json, router_xml] {
             let hits = vec![
@@ -571,12 +577,17 @@ mod rest_tests {
             ),
         ];
 
-        let mut router = Router::new_rest_json_router(request_specs.into_iter().map(|(spec, svc_name)| {
-            (
-                tower::util::BoxCloneService::new(NamedEchoUriService(String::from(svc_name))),
-                spec,
-            )
-        }));
+        let runtime_error_fn = |_err| todo!();
+
+        let mut router = Router::new_rest_json_router(
+            request_specs.into_iter().map(|(spec, svc_name)| {
+                (
+                    tower::util::BoxCloneService::new(NamedEchoUriService(String::from(svc_name))),
+                    spec,
+                )
+            }),
+            Box::new(runtime_error_fn),
+        );
 
         let hits = vec![
             ("A1", Method::GET, "/a/foo"),
@@ -633,18 +644,25 @@ mod awsjson_tests {
     #[tokio::test]
     async fn simple_routing() {
         let routes = vec![("Service.Operation", "A")];
-        let router_json10 = Router::new_aws_json_10_router(routes.clone().into_iter().map(|(operation, svc_name)| {
-            (
-                tower::util::BoxCloneService::new(NamedEchoOperationService(String::from(svc_name))),
-                operation.to_string(),
-            )
-        }));
-        let router_json11 = Router::new_aws_json_11_router(routes.into_iter().map(|(operation, svc_name)| {
-            (
-                tower::util::BoxCloneService::new(NamedEchoOperationService(String::from(svc_name))),
-                operation.to_string(),
-            )
-        }));
+        let runtime_error_fn = return_404;
+        let router_json10 = Router::new_aws_json_10_router(
+            routes.clone().into_iter().map(|(operation, svc_name)| {
+                (
+                    tower::util::BoxCloneService::new(NamedEchoOperationService(String::from(svc_name))),
+                    operation.to_string(),
+                )
+            }),
+            Box::new(runtime_error_fn),
+        );
+        let router_json11 = Router::new_aws_json_11_router(
+            routes.into_iter().map(|(operation, svc_name)| {
+                (
+                    tower::util::BoxCloneService::new(NamedEchoOperationService(String::from(svc_name))),
+                    operation.to_string(),
+                )
+            }),
+            Box::new(runtime_error_fn),
+        );
 
         for mut router in [router_json10, router_json11] {
             let mut headers = HeaderMap::new();

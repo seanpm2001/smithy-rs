@@ -90,6 +90,8 @@ interface Protocol {
      * protocol.
      */
     fun serverRouterRuntimeConstructor(): String
+
+    fun serverRuntimeErrorIntoResponseConverter(): RuntimeType = TODO()
 }
 
 typealias ProtocolMap<C> = Map<ShapeId, ProtocolGeneratorFactory<ProtocolGenerator, C>>

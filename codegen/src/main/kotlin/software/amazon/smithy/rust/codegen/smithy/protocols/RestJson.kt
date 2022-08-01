@@ -150,6 +150,39 @@ class RestJson(private val coreCodegenContext: CoreCodegenContext) : Protocol {
     ): Writable = RestRequestSpecGenerator(httpBindingResolver, requestSpecModule).generate(operationShape)
 
     override fun serverRouterRuntimeConstructor() = "new_rest_json_router"
+
+    override fun serverRuntimeErrorIntoResponseConverter(): RuntimeType {
+        val fnName = "runtime_error_into_response"
+        return RuntimeType.forInlineFun(fnName, RustModule.private("runtime_error")) { writer ->
+            // TODO Delegate for `Content-Type` header.
+            writer.rustTemplate(
+                """
+                pub fn $fnName(runtime_error: #{RuntimeError}) -> #{Http}::Response<#{SmithyHttpServer}::body::BoxBody> {
+                    let status_code = match runtime_error {
+                        #{SmithyHttpServer}::runtime_error::RuntimeError::Serialization(_) => #{Http}::StatusCode::BAD_REQUEST,
+                        #{SmithyHttpServer}::runtime_error::RuntimeError::InternalFailure(_) => #{Http}::StatusCode::INTERNAL_SERVER_ERROR,
+                        #{SmithyHttpServer}::runtime_error::RuntimeError::UnknownOperation => #{Http}::StatusCode::NOT_FOUND,
+                        #{SmithyHttpServer}::runtime_error::RuntimeError::NotAcceptable => #{Http}::StatusCode::NOT_ACCEPTABLE,
+                    };
+                    let body = #{SmithyHttpServer}::body::to_boxed("{}");
+                    let mut builder = #{Http}::Response::builder();
+                    builder = builder.status(status_code)
+                        .header("Content-Type", "application/json")
+                        .header("X-Amzn-Errortype", runtime_error.name());
+
+                    builder = builder.extension(#{SmithyHttpServer}::extension::RuntimeErrorExtension::new(String::from(
+                        runtime_error.name(),
+                    )));
+
+                    builder.body(body).expect("invalid HTTP response for `RuntimeError`; please file a bug report under https://github.com/awslabs/smithy-rs/issues")
+                }
+                """,
+                "SmithyHttpServer" to CargoDependency.SmithyHttpServer(runtimeConfig).asType(),
+                "Http" to CargoDependency.Http.asType(),
+                "RuntimeError" to RuntimeType.ServerRuntimeError(runtimeConfig),
+            )
+        }
+    }
 }
 
 fun restJsonFieldName(member: MemberShape): String {

@@ -71,7 +71,6 @@ import software.amazon.smithy.rust.codegen.util.hasStreamingMember
 import software.amazon.smithy.rust.codegen.util.inputShape
 import software.amazon.smithy.rust.codegen.util.isStreaming
 import software.amazon.smithy.rust.codegen.util.outputShape
-import software.amazon.smithy.rust.codegen.util.toPascalCase
 import software.amazon.smithy.rust.codegen.util.toSnakeCase
 import java.util.logging.Logger
 
@@ -135,6 +134,7 @@ private class ServerHttpBoundProtocolTraitImplGenerator(
         "SmithyHttp" to CargoDependency.SmithyHttp(runtimeConfig).asType(),
         "SmithyHttpServer" to ServerCargoDependency.SmithyHttpServer(runtimeConfig).asType(),
         "RuntimeError" to ServerRuntimeType.RuntimeError(runtimeConfig),
+        "RuntimeErrorIntoResponse" to protocol.serverRuntimeErrorIntoResponseConverter(),
         "RequestRejection" to ServerRuntimeType.RequestRejection(runtimeConfig),
         "ResponseRejection" to ServerRuntimeType.ResponseRejection(runtimeConfig),
         "http" to RuntimeType.http,
@@ -171,10 +171,7 @@ private class ServerHttpBoundProtocolTraitImplGenerator(
                     if let Some(headers) = req.headers() {
                         if let Some(accept) = headers.get(#{http}::header::ACCEPT) {
                             if accept != "$contentType" {
-                                return Err(#{RuntimeError} {
-                                    protocol: #{SmithyHttpServer}::protocols::Protocol::${codegenContext.protocol.name.toPascalCase()},
-                                    kind: #{SmithyHttpServer}::runtime_error::RuntimeErrorKind::NotAcceptable,
-                                })
+                                return Err(#{RuntimeError}::NotAcceptable)
                             }
                         }
                     }
@@ -201,12 +198,7 @@ private class ServerHttpBoundProtocolTraitImplGenerator(
                     #{parse_request}(req)
                         .await
                         .map($inputName)
-                        .map_err(
-                            |err| #{RuntimeError} {
-                                protocol: #{SmithyHttpServer}::protocols::Protocol::${codegenContext.protocol.name.toPascalCase()},
-                                kind: err.into()
-                            }
-                        )
+                        .map_err(|err| #{RuntimeError}::from(err))
                 }
             }
             """.trimIndent(),
@@ -230,12 +222,7 @@ private class ServerHttpBoundProtocolTraitImplGenerator(
                     Self::Output(o) => {
                         match #{serialize_response}(o) {
                             Ok(response) => response,
-                            Err(e) => {
-                                #{RuntimeError} {
-                                    protocol: #{SmithyHttpServer}::protocols::Protocol::${codegenContext.protocol.name.toPascalCase()},
-                                    kind: e.into()
-                                }.into_response()
-                            }
+                            Err(e) => #{RuntimeErrorIntoResponse}(#{RuntimeError}::from(e)),
                         }
                     },
                     Self::Error(err) => {
@@ -244,12 +231,7 @@ private class ServerHttpBoundProtocolTraitImplGenerator(
                                 response.extensions_mut().insert(#{SmithyHttpServer}::extension::ModeledErrorExtension::new(err.name()));
                                 response
                             },
-                            Err(e) => {
-                                #{RuntimeError} {
-                                    protocol: #{SmithyHttpServer}::protocols::Protocol::${codegenContext.protocol.name.toPascalCase()},
-                                    kind: e.into()
-                                }.into_response()
-                            }
+                            Err(e) => #{RuntimeErrorIntoResponse}(#{RuntimeError}::from(e)),
                         }
                     }
                 }
@@ -281,12 +263,7 @@ private class ServerHttpBoundProtocolTraitImplGenerator(
                 """
                 match #{serialize_response}(self.0) {
                     Ok(response) => response,
-                    Err(e) => {
-                        #{RuntimeError} {
-                            protocol: #{SmithyHttpServer}::protocols::Protocol::${codegenContext.protocol.name.toPascalCase()},
-                            kind: e.into()
-                        }.into_response()
-                    }
+                    Err(e) => #{RuntimeErrorIntoResponse}(#{RuntimeError}::from(e)),
                 }
                 """.trimIndent()
 

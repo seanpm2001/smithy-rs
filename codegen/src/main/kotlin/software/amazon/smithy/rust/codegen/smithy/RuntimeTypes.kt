@@ -226,6 +226,9 @@ data class RuntimeType(val name: String?, val dependency: RustDependency?, val n
             )
         }
 
+        fun ServerRuntimeError(runtimeConfig: RuntimeConfig) =
+            RuntimeType("RuntimeError", CargoDependency.SmithyHttpServer(runtimeConfig), "${runtimeConfig.crateSrcPrefix}_http_server::runtime_error")
+
         fun ProtocolTestHelper(runtimeConfig: RuntimeConfig, func: String): RuntimeType =
             RuntimeType(
                 func, CargoDependency.SmithyProtocolTestHelpers(runtimeConfig), "aws_smithy_protocol_test",
