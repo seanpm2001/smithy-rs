@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 use http::{Request, Response, StatusCode};
 use tower::{Layer, Service};
 
@@ -7,7 +12,7 @@ use crate::{
     runtime_error::{RuntimeError, RuntimeErrorKind},
 };
 
-use super::{future::RouterFuture2, request_spec::RequestSpec};
+use super::future::RouterFuture2;
 
 mod aws_json;
 mod rest;
