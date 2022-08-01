@@ -15,6 +15,7 @@ pub(crate) mod error;
 pub mod extension;
 pub mod routing;
 
+mod handler;
 #[doc(hidden)]
 pub mod protocols;
 #[doc(hidden)]
