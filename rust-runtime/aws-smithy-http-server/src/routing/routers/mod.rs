@@ -4,7 +4,7 @@
  */
 
 use http::{Request, Response, StatusCode};
-use tower::{Layer, Service};
+use tower::Service;
 
 use crate::{
     body::BoxBody,
