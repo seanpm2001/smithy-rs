@@ -244,6 +244,8 @@ mod example_generated {
 
     #[cfg(test)]
     mod tests {
+        use tower::layer::util::Identity;
+
         use super::*;
 
         async fn operation_1(input: Input1) -> Output1 {
@@ -260,9 +262,19 @@ mod example_generated {
 
         #[test]
         fn compose() {
+            fn map_operations(name: &'static str) -> Identity {
+                match name {
+                    "operation_1" => todo!(),
+                    "operation_2" => todo!(),
+                    _ => todo!(),
+                }
+            }
+
             let service = ServiceExample::builder::<Body>()
                 .operation_1(operation_1)
+                .operation_1_layer(&Identity::new())
                 .operation_2(operation_2.with_state(State))
+                .layer_all(map_operations)
                 .build();
         }
     }
