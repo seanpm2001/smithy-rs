@@ -1,12 +1,13 @@
 # Example changelog entries
+# 
 # [[aws-sdk-rust]]
 # message = "Fix typos in module documentation for generated crates"
 # references = ["smithy-rs#920"]
 # meta = { "breaking" = false, "tada" = false, "bug" = false }
 # author = "rcoh"
 #
-# [[smithy-rs]]
-# message = "Fix typos in module documentation for generated crates"
-# references = ["smithy-rs#920"]
-# meta = { "breaking" = false, "tada" = false, "bug" = false, "sdk" = "client | server | all"}
-# author = "rcoh"
+[[smithy-rs]]
+message = "Update Smithy dependency to 1.23.0. Models using version 2.0 of the IDL are now supported."
+references = ["smithy-rs#1623"]
+meta = { "breaking" = false, "tada" = true, "bug" = false, "sdk" = "all"}
+author = "ogudavid"
