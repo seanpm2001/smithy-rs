@@ -132,7 +132,10 @@ class ServerHttpSensitivityGenerator(
                     it.direction == RelationshipDirection.DIRECTED
                 }
                 .filter {
-                    it.hasTrait<SensitiveTrait>()
+                    it.hasTrait<SensitiveTrait>() || (
+                        it.asMemberShape().isPresent() &&
+                            model.expectShape(it.asMemberShape().get().getTarget()).hasTrait<SensitiveTrait>()
+                        )
                 }.mapNotNull {
                     it as? MemberShape
                 }
@@ -294,8 +297,10 @@ class ServerHttpSensitivityGenerator(
                 it.direction == RelationshipDirection.DIRECTED && !it.shape.hasTrait<A>()
             }
             .filter {
-                it.hasTrait<A>() || (it.asMemberShape().isPresent()
-                        && model.expectShape(it.asMemberShape().get().getTarget()).hasTrait<A>())
+                it.hasTrait<A>() || (
+                    it.asMemberShape().isPresent() &&
+                        model.expectShape(it.asMemberShape().get().getTarget()).hasTrait<A>()
+                    )
             }
             .flatMap {
                 Walker(model)
@@ -304,7 +309,10 @@ class ServerHttpSensitivityGenerator(
                         it.direction == RelationshipDirection.DIRECTED
                     }
                     .filter {
-                        it.hasTrait<B>()
+                        it.hasTrait<B>() || (
+                            it.asMemberShape().isPresent() &&
+                                model.expectShape(it.asMemberShape().get().getTarget()).hasTrait<B>()
+                            )
                     }.mapNotNull {
                         it as? MemberShape
                     }
