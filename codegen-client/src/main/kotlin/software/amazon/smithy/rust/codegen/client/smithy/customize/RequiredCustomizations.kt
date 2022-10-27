@@ -8,6 +8,7 @@ package software.amazon.smithy.rust.codegen.client.smithy.customize
 import software.amazon.smithy.model.shapes.OperationShape
 import software.amazon.smithy.rust.codegen.client.smithy.ClientCodegenContext
 import software.amazon.smithy.rust.codegen.client.smithy.customizations.AllowLintsGenerator
+import software.amazon.smithy.rust.codegen.client.smithy.customizations.ClientContextDecorator
 import software.amazon.smithy.rust.codegen.client.smithy.customizations.CrateVersionGenerator
 import software.amazon.smithy.rust.codegen.client.smithy.customizations.EndpointPrefixGenerator
 import software.amazon.smithy.rust.codegen.client.smithy.customizations.HttpChecksumRequiredGenerator
@@ -48,7 +49,7 @@ class RequiredCustomizations : RustCodegenDecorator<ClientProtocolGenerator, Cli
         codegenContext: ClientCodegenContext,
         baseCustomizations: List<ConfigCustomization>,
     ): List<ConfigCustomization> =
-        baseCustomizations + ResiliencyConfigCustomization(codegenContext)
+        baseCustomizations + ResiliencyConfigCustomization(codegenContext) + ClientContextDecorator(codegenContext)
 
     override fun libRsCustomizations(
         codegenContext: ClientCodegenContext,
