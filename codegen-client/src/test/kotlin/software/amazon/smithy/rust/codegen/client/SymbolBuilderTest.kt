@@ -126,11 +126,11 @@ class SymbolBuilderTest {
     )
     fun `creates primitives`(primitiveType: String, optional: Boolean, rustName: String) {
         val model = """
-    namespace foo.bar
-    structure MyStruct {
-        quux: $primitiveType
-    }
-""".asSmithyModel()
+            namespace foo.bar
+            structure MyStruct {
+                quux: $primitiveType
+            }
+        """.asSmithyModel()
         val member = model.expectShape(ShapeId.from("foo.bar#MyStruct\$quux"))
         val provider: SymbolProvider = testSymbolProvider(model)
         val memberSymbol = provider.toSymbol(member)

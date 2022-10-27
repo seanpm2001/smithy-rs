@@ -35,11 +35,21 @@ pub(crate) struct Partition<'a> {
 }
 
 impl<'a> Partition<'a> {
-    pub(crate) fn name(&'a self) -> &'a str { self.name }
-    pub(crate) fn dns_suffix(&'a self) -> &'a str { self.dns_suffix }
-    pub(crate) fn dual_stack_dns_suffix(&'a self) -> &'a str { self.dual_stack_dns_suffix }
-    pub(crate) fn supports_fips(&self) -> bool { self.supports_fips }
-    pub(crate) fn supports_dual_stack(&self) -> bool { self.supports_dual_stack }
+    pub(crate) fn name(&'a self) -> &'a str {
+        self.name
+    }
+    pub(crate) fn dns_suffix(&'a self) -> &'a str {
+        self.dns_suffix
+    }
+    pub(crate) fn dual_stack_dns_suffix(&'a self) -> &'a str {
+        self.dual_stack_dns_suffix
+    }
+    pub(crate) fn supports_fips(&self) -> bool {
+        self.supports_fips
+    }
+    pub(crate) fn supports_dual_stack(&self) -> bool {
+        self.supports_dual_stack
+    }
 }
 
 static DEFAULT_OVERRIDE: &PartitionOutputOverride = &PartitionOutputOverride {
@@ -204,7 +214,9 @@ impl PartitionOutputOverride {
                 .dual_stack_dns_suffix
                 .ok_or("missing dualstackDnsSuffix")?,
             supports_fips: self.supports_fips.ok_or("missing supports fips")?,
-            supports_dual_stack: self.supports_dual_stack.ok_or("missing supportsDualstack")?,
+            supports_dual_stack: self
+                .supports_dual_stack
+                .ok_or("missing supportsDualstack")?,
         })
     }
 }

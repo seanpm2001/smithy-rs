@@ -154,8 +154,8 @@ class EndpointsDecorator : RustCodegenDecorator<ClientProtocolGenerator, ClientC
     private fun helpers(endpointLib: RuntimeType) = writable {
         rustTemplate(
             """
-                let mut diagnostic_collector = #{DiagnosticCollector}::new();
-                let partition_resolver = #{deserialize_partitions}(#{PARTITION_METADATA}.as_bytes()).expect("partition metadata is valid");
+            let mut diagnostic_collector = #{DiagnosticCollector}::new();
+            let partition_resolver = #{deserialize_partitions}(#{PARTITION_METADATA}.as_bytes()).expect("partition metadata is valid");
             """,
             "DiagnosticCollector" to endpointLib.member("diagnostic::DiagnosticCollector"),
             "PartitionResolver" to endpointLib.member("partition::PartitionResolver"),
@@ -270,9 +270,9 @@ class CreateEndpointParams(
         memberParams.forEach { (memberShape, param) ->
             rust(
                 ".${setterName(param.name)}(${section.input}.${
-                    codegenContext.symbolProvider.toMemberName(
-                        memberShape,
-                    )
+                codegenContext.symbolProvider.toMemberName(
+                    memberShape,
+                )
                 }.as_ref())",
             )
         }
@@ -289,7 +289,7 @@ class ResolveEndpointDuringOperationCreation(private val runtimeConfig: RuntimeC
                     let endpoint_result = endpoint_params
                         .map_err(|e| #{Error}::message("No endpoint params were provided").with_cause(e))
                         .and_then(|p| ${section.config}.endpoint_resolver.resolve_endpoint(&p));
-    
+
                     ${section.request}.properties_mut().insert::<Result<#{Endpoint}, #{Error}>>(endpoint_result);
                     """,
                     "Error" to runtimeConfig.smithyHttp().member("endpoint::Error"),

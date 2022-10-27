@@ -173,8 +173,11 @@ mod test {
     use crate::signer::{OperationSigningConfig, SigV4Signer};
 
     use aws_endpoint::v2::AwsEndpointStage;
-    use aws_smithy_http::{body::SdkBody, middleware::MapRequest, operation, endpoint::Endpoint};
-    use aws_types::{region::{Region, SigningRegion}, Credentials, SigningService};
+    use aws_smithy_http::{body::SdkBody, endpoint::Endpoint, middleware::MapRequest, operation};
+    use aws_types::{
+        region::{Region, SigningRegion},
+        Credentials, SigningService,
+    };
 
     use http::header::AUTHORIZATION;
 
@@ -216,7 +219,9 @@ mod test {
         let req = operation::Request::new(req)
             .augment(|req, conf| {
                 // TODO(Zelda) How ARE endpoints and signing supposed to work?
-                let uri = format!("https://kinesis.{}.amazonaws.com", region).parse().expect("is valid URI");
+                let uri = format!("https://kinesis.{}.amazonaws.com", region)
+                    .parse()
+                    .expect("is valid URI");
                 let endpoint = Endpoint::immutable(uri);
                 conf.insert::<aws_smithy_http::endpoint::Result>(Ok(endpoint));
 

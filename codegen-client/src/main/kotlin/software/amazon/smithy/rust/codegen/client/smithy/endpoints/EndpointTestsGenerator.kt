@@ -45,7 +45,7 @@ class EndpointTestsGenerator(
                             let endpoint = #{resolver}(&params);
                             #{assertion:W}
                         }
-                    """,
+                        """,
                         "assertion" to assertion(testCase),
                         "params" to params(testCase),
                         "resolver" to EndpointsModule.member("inner_resolve_endpoint"),
@@ -62,18 +62,18 @@ class EndpointTestsGenerator(
             val url = expectationEndpoint.url.dq().escapeTemplates()
             rustTemplate(
                 """
-                            let endpoint = endpoint.expect(r##"Expected URI: $url"##);
-                            assert_eq!(#{Endpoint}::mutable($url.parse().unwrap()), endpoint);
-                        """,
+                let endpoint = endpoint.expect(r##"Expected URI: $url"##);
+                assert_eq!(#{Endpoint}::mutable($url.parse().unwrap()), endpoint);
+                """,
                 "Endpoint" to CargoDependency.SmithyHttp(codegenContext.runtimeConfig).asType().member("endpoint::Endpoint"),
             )
         } else if (expectationError != null) {
             val err = expectationError.escapeTemplates()
             rust(
                 """
-                        let error = endpoint.expect_err(r##"expected error ${err.dq()}"##);
-                        assert_eq!(r##"A valid endpoint could not be resolved: $err"##, error.to_string());
-                    """,
+                let error = endpoint.expect_err(r##"expected error ${err.dq()}"##);
+                assert_eq!(r##"A valid endpoint could not be resolved: $err"##, error.to_string());
+                """,
             )
         }
     }

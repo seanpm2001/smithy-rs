@@ -136,22 +136,22 @@ class RegionProviderConfig(codegenContext: CodegenContext) : ConfigCustomization
                 ServiceConfig.BuilderImpl ->
                     rustTemplate(
                         """
-                    /// Sets the AWS region to use when making requests.
-                    ///
-                    /// ## Examples
-                    /// ```no_run
-                    /// use aws_types::region::Region;
-                    /// use $moduleUseName::config::{Builder, Config};
-                    ///
-                    /// let config = $moduleUseName::Config::builder()
-                    ///     .region(Region::new("us-east-1"))
-                    ///     .build();
-                    /// ```
-                    pub fn region(mut self, region: impl Into<Option<#{Region}>>) -> Self {
-                        self.region = region.into();
-                        self
-                    }
-                    """,
+                        /// Sets the AWS region to use when making requests.
+                        ///
+                        /// ## Examples
+                        /// ```no_run
+                        /// use aws_types::region::Region;
+                        /// use $moduleUseName::config::{Builder, Config};
+                        ///
+                        /// let config = $moduleUseName::Config::builder()
+                        ///     .region(Region::new("us-east-1"))
+                        ///     .build();
+                        /// ```
+                        pub fn region(mut self, region: impl Into<Option<#{Region}>>) -> Self {
+                            self.region = region.into();
+                            self
+                        }
+                        """,
                         *codegenScope,
                     )
 

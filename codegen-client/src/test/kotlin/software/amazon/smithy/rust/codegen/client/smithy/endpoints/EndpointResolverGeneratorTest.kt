@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package software.amazon.smithy.rust.codegen.client.smithy.endpoints
 
 import software.amazon.smithy.model.node.Node
@@ -5,44 +10,44 @@ import software.amazon.smithy.rulesengine.language.EndpointRuleSet
 
 internal class EndpointResolverGeneratorTest {
     val ruleset = """
-    {
-      "serviceId": "minimal",
-      "parameters": {
-        "Region": {
-          "type": "string",
-          "builtIn": "AWS::Region",
-          "required": true
-        },
-        "Bucket": {
-            "type": "string",
-            "required": false
-        },
-        "DisableHttp": {
-            "type": "Boolean"
-        }
-      },
-      "rules": [
         {
-          "documentation": "base rule",
-          "conditions": [
-            { "fn": "isSet", "argv": [ {"ref": "DisableHttp" } ] },
-            { "fn": "booleanEquals", "argv": [{"ref": "DisableHttp"}, true] }
-          ],
-          "endpoint": {
-            "url": "{Region}.amazonaws.com",
-            "authSchemes": [
-              "v4"
-            ],
-            "authParams": {
-              "v4": {
-                "signingName": "serviceName",
-                "signingScope": "{Region}"
+          "serviceId": "minimal",
+          "parameters": {
+            "Region": {
+              "type": "string",
+              "builtIn": "AWS::Region",
+              "required": true
+            },
+            "Bucket": {
+                "type": "string",
+                "required": false
+            },
+            "DisableHttp": {
+                "type": "Boolean"
+            }
+          },
+          "rules": [
+            {
+              "documentation": "base rule",
+              "conditions": [
+                { "fn": "isSet", "argv": [ {"ref": "DisableHttp" } ] },
+                { "fn": "booleanEquals", "argv": [{"ref": "DisableHttp"}, true] }
+              ],
+              "endpoint": {
+                "url": "{Region}.amazonaws.com",
+                "authSchemes": [
+                  "v4"
+                ],
+                "authParams": {
+                  "v4": {
+                    "signingName": "serviceName",
+                    "signingScope": "{Region}"
+                  }
+                }
               }
             }
-          }
+          ]
         }
-      ]
-    }
     """.toRuleset()
 
 //    @Test

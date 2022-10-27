@@ -9,8 +9,8 @@
 //!
 //! This module contains an shared configuration representation that is agnostic from a specific service.
 
-use std::sync::Arc;
 use http::Uri;
+use std::sync::Arc;
 
 use aws_smithy_async::rt::sleep::AsyncSleep;
 use aws_smithy_client::http_connector::HttpConnector;
@@ -99,10 +99,7 @@ impl Builder {
     /// let endpoint = Uri::from_static("https://some-endpoint.some-region.amazonaws.com");
     /// let config = SdkConfig::builder().endpoint_uri(endpoint).build();
     /// ```
-    pub fn endpoint_uri(
-        mut self,
-        endpoint_uri: Uri,
-    ) -> Self {
+    pub fn endpoint_uri(mut self, endpoint_uri: Uri) -> Self {
         self.set_endpoint_uri(Some(endpoint_uri));
         self
     }
@@ -126,10 +123,7 @@ impl Builder {
     /// override_endpoint_resolution(&mut builder);
     /// let config = builder.build();
     /// ```
-    pub fn set_endpoint_uri(
-        &mut self,
-        endpoint_uri: Option<Uri>,
-    ) -> &mut Self {
+    pub fn set_endpoint_uri(&mut self, endpoint_uri: Option<Uri>) -> &mut Self {
         self.endpoint_uri = endpoint_uri;
         self
     }

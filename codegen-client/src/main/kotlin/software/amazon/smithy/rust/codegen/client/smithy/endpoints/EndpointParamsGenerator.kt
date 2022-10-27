@@ -55,7 +55,7 @@ class EndpointParamsGenerator(
                 fn missing(field: &'static str) -> Self {
                     Self::MissingRequiredField { field: field.into() }
                 }
-                
+
                 ##[allow(dead_code)]
                 fn endpoint_resolution(message: std::borrow::Cow<'static, str>) -> Self {
                     Self::EndpointResolutionError { message }
@@ -184,18 +184,18 @@ class EndpointParamsGenerator(
             }
             rustTemplate(
                 """
-                    /// Sets the value for $name #{extraDocs:W}
-                    pub fn $name(mut self, value: #{type:W}) -> Self {
-                        self.$name = Some($value);
-                        self
-                    }
+                /// Sets the value for $name #{extraDocs:W}
+                pub fn $name(mut self, value: #{type:W}) -> Self {
+                    self.$name = Some($value);
+                    self
+                }
 
-                    /// Sets the value for $name #{extraDocs:W}
-                    pub fn set_$name(mut self, param: Option<impl Into<#{nonOptionalType}>>) -> Self {
-                        self.$name = param.map(|t|t.into());
-                        self
-                    }
-                    """,
+                /// Sets the value for $name #{extraDocs:W}
+                pub fn set_$name(mut self, param: Option<impl Into<#{nonOptionalType}>>) -> Self {
+                    self.$name = param.map(|t|t.into());
+                    self
+                }
+                """,
                 "nonOptionalType" to parameter.symbol().mapRustType { it.stripOuter<RustType.Option>() },
                 "type" to type,
                 "extraDocs" to extraDocs,

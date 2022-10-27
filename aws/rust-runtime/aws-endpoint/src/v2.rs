@@ -9,9 +9,9 @@ use std::fmt::{self, Debug, Display, Formatter};
 use aws_smithy_http::endpoint::EndpointPrefix;
 use aws_smithy_http::middleware::MapRequest;
 use aws_smithy_http::operation::Request;
+use aws_types::endpoint::{AwsEndpoint, BoxError, CredentialScope};
 use aws_types::region::SigningRegion;
 use aws_types::SigningService;
-use aws_types::endpoint::{AwsEndpoint, BoxError, CredentialScope};
 
 #[derive(Clone, Debug, Default)]
 #[non_exhaustive]

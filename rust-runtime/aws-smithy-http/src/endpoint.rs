@@ -20,9 +20,9 @@ pub trait ResolveEndpoint<Params>: Send + Sync {
 
 // Implement the resolver trait for all closures and functions that take
 // `Params` and return a `std::result::Result<Endpoint, Error>`
-impl <Resolver, Params> ResolveEndpoint<Params> for Resolver
+impl<Resolver, Params> ResolveEndpoint<Params> for Resolver
 where
-    Resolver: Fn(&Params) -> Result + Send + Sync
+    Resolver: Fn(&Params) -> Result + Send + Sync,
 {
     fn resolve_endpoint(&self, params: &Params) -> Result {
         (self)(params)
@@ -186,7 +186,7 @@ impl Endpoint {
 }
 
 // Static `Endpoint`s can be passed in place of a function that dynamically resolves `Endpoint`s.
-impl <T> ResolveEndpoint<T> for Endpoint {
+impl<T> ResolveEndpoint<T> for Endpoint {
     fn resolve_endpoint(&self, _: &T) -> Result {
         Ok(self.clone())
     }

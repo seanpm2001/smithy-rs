@@ -7,6 +7,9 @@ use crate::endpoint_lib::diagnostic::DiagnosticCollector;
 use urlencoding::encode;
 
 // Returns `Option` for forwards compatibility
-pub(crate) fn uri_encode<'a, 'b>(s: &'a str, _e: &'b mut DiagnosticCollector) -> Option<std::borrow::Cow<'a, str>> {
+pub(crate) fn uri_encode<'a, 'b>(
+    s: &'a str,
+    _e: &'b mut DiagnosticCollector,
+) -> Option<std::borrow::Cow<'a, str>> {
     Some(encode(s))
 }

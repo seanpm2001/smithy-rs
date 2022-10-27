@@ -280,9 +280,9 @@ internal class EndpointRuleSetVisitor(
     override fun startMultipartTemplate(): Writable = writable {
         rust(
             """
-        {
-            let mut out = String::new();
-        """,
+            {
+                let mut out = String::new();
+            """,
         )
     }
 

@@ -227,14 +227,14 @@ class PaginatorGenerator private constructor(
                     paginationInfo.itemsMemberPath.joinToString(".") { symbolProvider.toMemberName(it) }
                 rustTemplate(
                     """
-                /// Create a flattened paginator
-                ///
-                /// This paginator automatically flattens results using `$documentedPath`. Queries to the underlying service
-                /// are dispatched lazily.
-                pub fn items(self) -> #{ItemPaginator}${generics.inst} {
-                    #{ItemPaginator}(self)
-                }
-                """,
+                    /// Create a flattened paginator
+                    ///
+                    /// This paginator automatically flattens results using `$documentedPath`. Queries to the underlying service
+                    /// are dispatched lazily.
+                    pub fn items(self) -> #{ItemPaginator}${generics.inst} {
+                        #{ItemPaginator}(self)
+                    }
+                    """,
                     "ItemPaginator" to itemPaginatorType,
                 )
             }
