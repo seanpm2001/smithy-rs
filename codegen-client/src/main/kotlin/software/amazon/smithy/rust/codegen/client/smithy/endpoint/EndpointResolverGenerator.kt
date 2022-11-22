@@ -190,15 +190,15 @@ class EndpointResolverGenerator(stdlib: List<CustomRuntimeFunction>, private val
             Attribute.AllowUnused.render(this)
             rust("let ${it.memberName()} = &$ParamsName.${it.memberName()};")
         }
-        generateRulesList(endpointRuleSet.rules, true)(this)
+        generateRulesList(endpointRuleSet.rules)(this)
     }
 
-    private fun generateRulesList(rules: List<Rule>, suppressExhaustivenessCheck: Boolean = false) = writable {
+    private fun generateRulesList(rules: List<Rule>) = writable {
         rules.forEach { rule ->
             rule.documentation.orNull()?.also { comment(escape(it)) }
             generateRule(rule)(this)
         }
-        if (!isExhaustive(rules.last()) && !suppressExhaustivenessCheck) {
+        if (!isExhaustive(rules.last())) {
             // it's hard to figure out if these are always needed or not
             Attribute.Custom("allow(unreachable_code)").render(this)
             rustTemplate(
