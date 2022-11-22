@@ -9,6 +9,8 @@ import software.amazon.smithy.rust.codegen.client.smithy.ClientCodegenContext
 import software.amazon.smithy.rust.codegen.client.smithy.customizations.DocsRsMetadataDecorator
 import software.amazon.smithy.rust.codegen.client.smithy.customizations.DocsRsMetadataSettings
 import software.amazon.smithy.rust.codegen.client.smithy.customize.CombinedCodegenDecorator
+import software.amazon.smithy.rust.codegen.client.smithy.endpoint.EndpointsDecorator
+import software.amazon.smithy.rust.codegen.client.smithy.endpoint.rulesgen.NativeSmithyEndpointsStdLib
 import software.amazon.smithy.rust.codegen.client.smithy.generators.protocol.ClientProtocolGenerator
 import software.amazon.smithy.rustsdk.customize.apigateway.ApiGatewayDecorator
 import software.amazon.smithy.rustsdk.customize.auth.DisabledAuthDecorator
@@ -36,6 +38,10 @@ val DECORATORS = listOf(
     AwsPresigningDecorator(),
     AwsReadmeDecorator(),
     HttpConnectorDecorator(),
+
+    EndpointsDecorator(),
+    NativeSmithyEndpointsStdLib(),
+    AwsEndpointsStdLib(),
 
     // Service specific decorators
     ApiGatewayDecorator(),

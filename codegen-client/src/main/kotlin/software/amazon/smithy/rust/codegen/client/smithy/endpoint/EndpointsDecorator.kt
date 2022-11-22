@@ -12,6 +12,7 @@ import software.amazon.smithy.model.shapes.ShapeType
 import software.amazon.smithy.rulesengine.language.syntax.parameters.Parameter
 import software.amazon.smithy.rulesengine.language.syntax.parameters.Parameters
 import software.amazon.smithy.rulesengine.traits.ContextIndex
+import software.amazon.smithy.rulesengine.traits.EndpointTestsTrait
 import software.amazon.smithy.rust.codegen.client.smithy.ClientCodegenContext
 import software.amazon.smithy.rust.codegen.client.smithy.customize.RustCodegenDecorator
 import software.amazon.smithy.rust.codegen.client.smithy.generators.config.ConfigCustomization
@@ -21,10 +22,12 @@ import software.amazon.smithy.rust.codegen.core.rustlang.rust
 import software.amazon.smithy.rust.codegen.core.rustlang.rustTemplate
 import software.amazon.smithy.rust.codegen.core.rustlang.writable
 import software.amazon.smithy.rust.codegen.core.smithy.CodegenContext
+import software.amazon.smithy.rust.codegen.core.smithy.RustCrate
 import software.amazon.smithy.rust.codegen.core.smithy.customize.OperationCustomization
 import software.amazon.smithy.rust.codegen.core.smithy.customize.OperationSection
 import software.amazon.smithy.rust.codegen.core.smithy.generators.operationBuildError
 import software.amazon.smithy.rust.codegen.core.util.dq
+import software.amazon.smithy.rust.codegen.core.util.getTrait
 import software.amazon.smithy.rust.codegen.core.util.orNull
 
 /**
@@ -65,6 +68,33 @@ class EndpointsDecorator : RustCodegenDecorator<ClientProtocolGenerator, ClientC
             codegenContext,
             codegenContext.rootDecorator.endpointCustomizations(codegenContext),
         )
+    }
+
+    override fun extras(codegenContext: ClientCodegenContext, rustCrate: RustCrate) {
+        rustCrate.withModule(EndpointsModule) {
+            codegenContext.serviceShape.getTrait<EndpointTestsTrait>()?.also { endpointTestsTrait ->
+                val rules =
+                    EndpointRulesetIndex.of(codegenContext.model)
+                        .endpointRulesForService(codegenContext.serviceShape)!!
+                val paramsT = EndpointParamsGenerator(rules.parameters).paramsStruct()
+                val resolver = EndpointResolverGenerator(
+                    codegenContext.rootDecorator.endpointCustomizations(codegenContext).flatMap {
+                        it.customRuntimeFunctions(
+                            codegenContext,
+                        )
+                    },
+                    codegenContext.runtimeConfig,
+
+                ).generateResolverStruct(rules)
+                EndpointTestGenerator(
+                    endpointTestsTrait,
+                    paramsT,
+                    resolver,
+                    rules.parameters,
+                    codegenContext.runtimeConfig,
+                )
+            }
+        }
     }
 }
 
