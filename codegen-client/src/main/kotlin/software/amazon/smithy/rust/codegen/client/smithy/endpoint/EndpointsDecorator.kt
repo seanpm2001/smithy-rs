@@ -92,7 +92,7 @@ class EndpointsDecorator : RustCodegenDecorator<ClientProtocolGenerator, ClientC
                     resolver,
                     rules.parameters,
                     codegenContext.runtimeConfig,
-                )
+                ).generate()(this)
             }
         }
     }

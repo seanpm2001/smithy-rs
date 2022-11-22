@@ -32,6 +32,14 @@ pub struct Endpoint {
     immutable: bool,
 }
 
+impl<T> ResolveEndpoint<T> for Endpoint {
+    fn resolve_endpoint(&self, params: &T) -> Result {
+        Ok(aws_smithy_types::endpoint::Endpoint::builder()
+            .url(self.uri.to_string())
+            .build())
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EndpointPrefix(String);
 impl EndpointPrefix {

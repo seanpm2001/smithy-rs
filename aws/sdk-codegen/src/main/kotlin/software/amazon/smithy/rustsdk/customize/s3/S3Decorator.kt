@@ -7,11 +7,13 @@ package software.amazon.smithy.rustsdk.customize.s3
 
 import software.amazon.smithy.aws.traits.protocols.RestXmlTrait
 import software.amazon.smithy.model.Model
+import software.amazon.smithy.model.pattern.UriPattern
 import software.amazon.smithy.model.shapes.OperationShape
 import software.amazon.smithy.model.shapes.ServiceShape
 import software.amazon.smithy.model.shapes.Shape
 import software.amazon.smithy.model.shapes.ShapeId
 import software.amazon.smithy.model.shapes.StructureShape
+import software.amazon.smithy.model.traits.HttpTrait
 import software.amazon.smithy.model.transform.ModelTransformer
 import software.amazon.smithy.rust.codegen.client.smithy.ClientCodegenContext
 import software.amazon.smithy.rust.codegen.client.smithy.customize.RustCodegenDecorator
@@ -70,7 +72,7 @@ class S3Decorator : RustCodegenDecorator<ClientProtocolGenerator, ClientCodegenC
                     (it as StructureShape).toBuilder().addTrait(AllowInvalidXmlRoot()).build()
                 }
             }
-        }
+        }.letIf(applies(service.id)) { StripBucketFromHttpPath().transform(it) }
     }
 
     override fun libRsCustomizations(
@@ -135,5 +137,42 @@ class S3PubUse : LibRsCustomization() {
             )
         }
         else -> emptySection
+    }
+}
+
+class StripBucketFromHttpPath {
+    private val transformer = ModelTransformer.create()
+    fun transform(model: Model): Model {
+        // 2. Remove `/{Bucket}` from the path (http trait)
+        return transformer.mapTraits(model) { shape, trait ->
+            when (trait) {
+                is HttpTrait -> {
+                    val appliedToOperation = shape
+                        .asOperationShape()
+                        .map { operation ->
+                            model.expectShape(operation.inputShape, StructureShape::class.java)
+                                .getMember("Bucket").isPresent
+                        }.orElse(false)
+                    if (!appliedToOperation) {
+                        trait
+                    } else {
+                        trait.toBuilder().uri(UriPattern.parse(transformUri(trait.uri.toString()))).build()
+                    }
+                }
+                else -> trait
+            }
+        }
+    }
+
+    private fun transformUri(uri: String): String {
+        if (!uri.startsWith("/{Bucket}")) {
+            throw IllegalStateException("tried to transform `$uri` that was not a standard bucket URI")
+        }
+        val withoutBucket = uri.replace("/{Bucket}", "")
+        return if (!withoutBucket.startsWith("/")) {
+            "/$withoutBucket"
+        } else {
+            withoutBucket
+        }
     }
 }
