@@ -2,16 +2,5 @@
 # `./gradlew -Paws.fullsdk=true :aws:sdk:assemble` these tests are copied into their respective Service crates.
 [workspace]
 members = [
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "kms",
-    "lambda",
-    "polly",
-    "qldbsession",
     "s3",
-    "s3control",
-    "sts",
-    "transcribestreaming",
 ]
