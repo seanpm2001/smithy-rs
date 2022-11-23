@@ -33,9 +33,17 @@ pub struct Endpoint {
 }
 
 impl<T> ResolveEndpoint<T> for Endpoint {
-    fn resolve_endpoint(&self, params: &T) -> Result {
+    fn resolve_endpoint(&self, _params: &T) -> Result {
         Ok(aws_smithy_types::endpoint::Endpoint::builder()
             .url(self.uri.to_string())
+            .build())
+    }
+}
+
+impl<T> ResolveEndpoint<T> for Uri {
+    fn resolve_endpoint(&self, _params: &T) -> Result {
+        Ok(aws_smithy_types::endpoint::Endpoint::builder()
+            .url(self.to_string())
             .build())
     }
 }
