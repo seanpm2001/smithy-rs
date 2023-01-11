@@ -24,6 +24,7 @@
 pub mod bounds;
 pub mod erase;
 pub mod retry;
+pub mod transparent;
 
 // https://github.com/rust-lang/rust/issues/72081
 #[allow(rustdoc::private_doc_tests)]
@@ -105,6 +106,7 @@ use std::sync::Arc;
 use timeout::ClientTimeoutParams;
 use tower::{Layer, Service, ServiceBuilder, ServiceExt};
 use tracing::{debug_span, field, field::display, Instrument};
+use transparent::TransparentLayer;
 
 /// Smithy service client.
 ///
@@ -221,6 +223,7 @@ where
                     .new_request_policy(self.sleep_impl.clone()),
             )
             .layer(TimeoutLayer::new(timeout_params.operation_attempt_timeout))
+            .layer(TransparentLayer::new())
             .layer(ParseResponseLayer::<O, Retry>::new())
             // These layers can be considered as occurring in order. That is, first invoke the
             // customer-provided middleware, then dispatch dispatch over the wire.
