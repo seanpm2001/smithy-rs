@@ -9,6 +9,18 @@ use tower::{Layer, Service};
 
 pub struct TransparentService<S, Req>(S, PhantomData<Req>);
 
+// The fix for the compilation issue is to uncomment this code. Without this service being
+// `Clone`-able, the whole layer stack breaks and can no longer impl the service trait. The `Clone`
+// requirement comes from the retry layer.
+// impl<S: Clone, Req> Clone for TransparentService<S, Req>
+// where
+//     S: Clone,
+// {
+//     fn clone(&self) -> Self {
+//         Self(self.0.clone(), PhantomData)
+//     }
+// }
+
 impl<S, Req> TransparentService<S, Req>
 where
     S: Service<Req>,
