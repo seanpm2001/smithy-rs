@@ -452,10 +452,7 @@ mod test {
     }
 
     #[test]
-    #[cfg(all(
-        all(aws_sdk_unstable, feature = "deserialize"),
-        all(aws_sdk_unstable, feature = "serialize")
-    ))]
+    #[cfg(all(test, aws_sdk_unstable, feature = "deserialize", feature = "serialize"))]
     /// ensures that numbers are deserialized as expected
     /// 0 <= PosInt
     /// 0 > NegInt
