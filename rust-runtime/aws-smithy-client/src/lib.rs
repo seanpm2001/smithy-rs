@@ -22,6 +22,7 @@
 )]
 
 pub mod bounds;
+pub mod boxing;
 pub mod erase;
 pub mod retry;
 pub mod transparent;
@@ -101,12 +102,12 @@ use aws_smithy_http_tower::parse_response::ParseResponseLayer;
 use aws_smithy_types::error::display::DisplayErrorContext;
 use aws_smithy_types::retry::ProvideErrorKind;
 use aws_smithy_types::timeout::OperationTimeoutConfig;
+use boxing::BoxingLayer;
 use std::error::Error;
 use std::sync::Arc;
 use timeout::ClientTimeoutParams;
 use tower::{Layer, Service, ServiceBuilder, ServiceExt};
 use tracing::{debug_span, field, field::display, Instrument};
-use transparent::TransparentLayer;
 
 /// Smithy service client.
 ///
@@ -179,9 +180,11 @@ where
     /// access the raw response use `call_raw`.
     pub async fn call<O, T, E, Retry>(&self, op: Operation<O, Retry>) -> Result<T, SdkError<E>>
     where
-        O: Send + Sync,
+        // Hey Esteban! Remove this 'static bound
+        O: Send + Sync + 'static,
         E: std::error::Error + Send + Sync + 'static,
-        Retry: Send + Sync,
+        // Hey Esteban! Remove this 'static bound
+        Retry: Send + Sync + 'static,
         R::Policy: bounds::SmithyRetryPolicy<O, T, E, Retry>,
         bounds::Parsed<<M as bounds::SmithyMiddleware<C>>::Service, O, Retry>:
             Service<Operation<O, Retry>, Response = SdkSuccess<T>, Error = SdkError<E>> + Clone,
@@ -198,9 +201,11 @@ where
         op: Operation<O, Retry>,
     ) -> Result<SdkSuccess<T>, SdkError<E>>
     where
-        O: Send + Sync,
+        // Hey Esteban! Remove this 'static bound
+        O: Send + Sync + 'static,
         E: std::error::Error + Send + Sync + 'static,
-        Retry: Send + Sync,
+        // Hey Esteban! Remove this 'static bound
+        Retry: Send + Sync + 'static,
         R::Policy: bounds::SmithyRetryPolicy<O, T, E, Retry>,
         // This bound is not _technically_ inferred by all the previous bounds, but in practice it
         // is because _we_ know that there is only implementation of Service for Parsed
@@ -223,7 +228,7 @@ where
                     .new_request_policy(self.sleep_impl.clone()),
             )
             .layer(TimeoutLayer::new(timeout_params.operation_attempt_timeout))
-            .layer(TransparentLayer::new())
+            .layer(BoxingLayer::new())
             .layer(ParseResponseLayer::<O, Retry>::new())
             // These layers can be considered as occurring in order. That is, first invoke the
             // customer-provided middleware, then dispatch dispatch over the wire.

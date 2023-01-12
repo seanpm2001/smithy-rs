@@ -3,50 +3,55 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#![allow(dead_code, missing_docs, missing_debug_implementations)]
+#![allow(missing_docs, missing_debug_implementations)]
 
+use std::future::Future;
 use std::marker::PhantomData;
+use std::pin::Pin;
 use std::task::{Context, Poll};
 use tower::{Layer, Service};
 
 #[derive(Clone)]
-pub struct TransparentService<S>(S);
+pub struct BoxingService<S>(S);
 
-impl<S> TransparentService<S> {
+impl<S> BoxingService<S> {
     pub fn new(service: S) -> Self {
         Self(service)
     }
 }
 
-impl<S, Req> Service<Req> for TransparentService<S>
+impl<S, Req> Service<Req> for BoxingService<S>
 where
     S: Service<Req>,
+    S::Future: 'static,
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = S::Future;
+    type Future = Pin<Box<dyn Future<Output = Result<S::Response, S::Error>>>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.0.poll_ready(cx)
     }
 
     fn call(&mut self, req: Req) -> Self::Future {
-        self.0.call(req)
+        let fut = self.0.call(req);
+
+        Box::pin(async move { fut.await })
     }
 }
 
-pub struct TransparentLayer<S>(PhantomData<S>);
+pub struct BoxingLayer<S>(PhantomData<S>);
 
-impl<S> TransparentLayer<S> {
+impl<S> BoxingLayer<S> {
     pub fn new() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<S> Layer<S> for TransparentLayer<S> {
-    type Service = TransparentService<S>;
+impl<S> Layer<S> for BoxingLayer<S> {
+    type Service = BoxingService<S>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        TransparentService::new(inner)
+        BoxingService::new(inner)
     }
 }
