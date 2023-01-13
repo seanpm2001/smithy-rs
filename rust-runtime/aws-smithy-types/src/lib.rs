@@ -19,12 +19,12 @@ pub mod base64;
 pub mod date_time;
 pub mod endpoint;
 pub mod error;
-mod number;
 pub mod primitive;
 pub mod retry;
 pub mod timeout;
-pub use number::Number;
+mod number;
 
+pub use number::Number;
 pub use crate::date_time::DateTime;
 pub use error::Error;
 
