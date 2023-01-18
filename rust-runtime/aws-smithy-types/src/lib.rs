@@ -12,6 +12,7 @@
     rust_2018_idioms,
     unreachable_pub
 )]
+#![allow(clippy::derive_partial_eq_without_eq)] // TODO: derive Eq for appropriate types
 
 use crate::error::{TryFromNumberError, TryFromNumberErrorKind};
 use std::collections::HashMap;
