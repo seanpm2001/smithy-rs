@@ -253,6 +253,7 @@ fn simple_request(body: &'static str) -> Request<Body> {
         .expect("could not create request")
 }
 
+#[allow(clippy::type_complexity)]
 fn spawn_service<L, E>(
     layer: L,
 ) -> (
