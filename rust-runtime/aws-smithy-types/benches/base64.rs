@@ -154,6 +154,7 @@ mod handrolled_base64 {
     }
 
     /// Failure to decode a base64 value.
+    #[allow(clippy::enum_variant_names)]
     #[derive(Debug, Clone, Eq, PartialEq)]
     #[non_exhaustive]
     pub enum DecodeError {
