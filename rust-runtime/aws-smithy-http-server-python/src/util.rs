@@ -131,6 +131,7 @@ async def async_func():
         })
     }
 
+    #[allow(clippy::bool_assert_comparison)]
     #[test]
     fn check_if_is_optional_of() -> PyResult<()> {
         pyo3::prepare_freethreaded_python();
