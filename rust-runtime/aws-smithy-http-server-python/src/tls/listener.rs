@@ -214,7 +214,7 @@ mod tests {
 
     fn client_config_with_cert(cert: &rcgen::Certificate) -> ClientConfig {
         let mut roots = RootCertStore::empty();
-        roots.add_parsable_certificates(&vec![cert.serialize_der().unwrap()]);
+        roots.add_parsable_certificates(&[cert.serialize_der().unwrap()]);
         ClientConfig::builder()
             .with_safe_defaults()
             .with_root_certificates(roots)
