@@ -4,7 +4,6 @@
  */
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use rand;
 use rand::distributions::{Alphanumeric, DistString};
 
 /// Generates a random string of a given length
