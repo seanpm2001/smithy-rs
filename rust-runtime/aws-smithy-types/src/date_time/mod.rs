@@ -47,6 +47,7 @@ const NANOS_PER_SECOND_U32: u32 = 1_000_000_000;
 /// The [`aws-smithy-types-convert`](https://crates.io/crates/aws-smithy-types-convert) crate
 /// can be used for conversions to/from other libraries, such as
 /// [`time`](https://crates.io/crates/time) or [`chrono`](https://crates.io/crates/chrono).
+#[allow(clippy::derive_partial_eq_without_eq)] // TODO: derive Eq?
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct DateTime {
     seconds: i64,
