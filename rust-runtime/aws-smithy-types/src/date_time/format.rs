@@ -82,7 +82,7 @@ fn remove_trailing_zeros(string: &mut String) {
 pub(crate) mod epoch_seconds {
     use super::remove_trailing_zeros;
     use super::{DateTimeParseError, DateTimeParseErrorKind};
-    use crate::DateTime;
+    use crate::date_time::DateTime;
     use std::str::FromStr;
 
     /// Formats a `DateTime` into the Smithy epoch seconds date-time format.
@@ -134,7 +134,7 @@ pub(crate) mod http_date {
         DateTimeFormatError, DateTimeFormatErrorKind, DateTimeParseError, DateTimeParseErrorKind,
         NANOS_PER_SECOND,
     };
-    use crate::DateTime;
+    use crate::date_time::DateTime;
     use std::str::FromStr;
     use time::{Date, Month, OffsetDateTime, PrimitiveDateTime, Time, UtcOffset, Weekday};
 
@@ -395,7 +395,7 @@ pub(crate) mod rfc3339 {
     use crate::date_time::format::{
         DateTimeFormatError, DateTimeFormatErrorKind, DateTimeParseError, DateTimeParseErrorKind,
     };
-    use crate::DateTime;
+    use crate::date_time::DateTime;
     use time::format_description::well_known::Rfc3339;
     use time::OffsetDateTime;
 
