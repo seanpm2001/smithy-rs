@@ -30,8 +30,7 @@ pub use error::Error;
 /// Binary Blob Type
 ///
 /// Blobs represent protocol-agnostic binary content.
-#[allow(clippy::derive_partial_eq_without_eq)] // TODO: derive Eq?
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Blob {
     inner: Vec<u8>,
 }
