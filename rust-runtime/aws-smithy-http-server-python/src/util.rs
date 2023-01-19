@@ -3,8 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#![allow(clippy::derive_partial_eq_without_eq)] // TODO: derive Eq for appropriate types
-
 pub mod collection;
 pub mod error;
 
