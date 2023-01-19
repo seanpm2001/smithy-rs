@@ -52,15 +52,30 @@ object OperationNormalizer {
     fun transform(model: Model): Model {
         val transformer = ModelTransformer.create()
         val operations = model.shapes(OperationShape::class.java).toList()
+
+        println("Operations: ${operations.toString()}");
+
         val newShapes = operations.flatMap { operation ->
+
+            println("Working on Operation: ${operation.toString()}");
+
             // Generate or modify the input and output of the given `Operation` to be a unique shape
             listOf(syntheticInputShape(model, operation), syntheticOutputShape(model, operation))
         }
+
         val shapeConflict = newShapes.firstOrNull { shape -> model.getShape(shape.id).isPresent }
         check(
             shapeConflict == null,
         ) { "shape $shapeConflict conflicted with an existing shape in the model (${model.getShape(shapeConflict!!.id)}. This is a bug." }
+
         val modelWithOperationInputs = model.toBuilder().addShapes(newShapes).build()
+
+        modelWithOperationInputs.toSet().forEach {
+            println(it.toString())
+        }
+
+        //println("After adding to operations: ${modelWithOperationInputs.toString()}")
+
         return transformer.mapShapes(modelWithOperationInputs) {
             // Update all operations to point to their new input/output shapes
             val transformed: Optional<Shape> = it.asOperationShape().map { operation ->

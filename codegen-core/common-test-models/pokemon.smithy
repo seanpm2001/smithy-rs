@@ -34,7 +34,7 @@ resource Storage {
 
 /// Retrieve information about your Pokédex.
 @readonly
-@http(uri: "/pokedex/{user}", method: "GET")
+@http(uri: "/pokedex/{user}", method: "POST")
 operation GetStorage {
     input: GetStorageInput,
     output: GetStorageOutput,
@@ -56,7 +56,12 @@ structure GetStorageInput {
     @required
     @httpHeader("passcode")
     passcode: String,
+    @range(min: 3, max: 9)
+    age: PositiveInteger
 }
+
+@range(min: 1, max: 100)
+integer PositiveInteger
 
 /// A list of Pokémon species.
 list SpeciesCollection {
