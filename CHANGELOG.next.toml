@@ -44,6 +44,15 @@ meta = { "breaking" = true, "tada" = true, "bug" = false }
 author = "rcoh"
 
 [[smithy-rs]]
+message = """Add serde crate to `aws-smithy-types`.
+
+It's behind the feature gate `aws_sdk_unstable` which can only be enabled via a `--cfg` flag.
+"""
+references = ["smithy-rs#1944"]
+meta = { "breaking" = false, "tada" = false, "bug" = false }
+author = "thomas-k-cameron"
+
+[[smithy-rs]]
 message = "In 0.52, `@length`-constrained collection shapes whose members are not constrained made the server code generator crash. This has been fixed."
 references = ["smithy-rs#2103"]
 meta = { "breaking" = false, "tada" = false, "bug" = true, "target" = "server" }
@@ -162,9 +171,3 @@ FIPS and dual-stack endpoints can each be configured in multiple ways:
 Note: Not all services support FIPS and dual-stack.
 """
 author = "rcoh"
-
-[[smithy-rs]]
-references = ["smithy-rs#2054"]
-meta = { "breaking" = false, "tada" = false, "bug" = true, "target" = "server" }
-message = "Servers can generate a unique request ID and use it in their handlers."
-author = "82marbag"
