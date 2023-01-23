@@ -5,6 +5,7 @@ import software.amazon.smithy.model.shapes.MemberShape
 import software.amazon.smithy.model.shapes.OperationShape
 import software.amazon.smithy.model.shapes.Shape
 import software.amazon.smithy.model.shapes.ShapeId
+import software.amazon.smithy.model.shapes.ShapeType
 import software.amazon.smithy.model.shapes.StructureShape
 import software.amazon.smithy.model.traits.EnumTrait
 import software.amazon.smithy.model.traits.LengthTrait
@@ -15,17 +16,15 @@ import software.amazon.smithy.model.traits.Trait
 import software.amazon.smithy.model.traits.UniqueItemsTrait
 import software.amazon.smithy.model.transform.ModelTransformer
 import software.amazon.smithy.rust.codegen.server.smithy.hasConstraintTrait
-import java.lang.reflect.Member
 import java.util.*
-import java.util.stream.Stream
 import kotlin.streams.toList
 
 object ChangeConstrainedMemberType {
-    data class StructureTransformation(val transformedMemberShapes : Map<ShapeId, MemberShape>, val newShapes : List<Shape>)
-    data class MemberTransformation(val newShape : StructureShape, val memberToChange: MemberShape, val traitsToKeep : List<Trait>)
+    // Todo: is there a case when we might need to have a List<Shape> as new types that are defined?
+    data class MemberTransformation(val newShape : Shape, val memberToChange: MemberShape, val traitsToKeep : List<Trait>)
 
-    // TODO: there must be some way to get this
-    val constraintTraitIds = setOf(
+    // TODO: there must be some way to get these IDs?
+    private val constraintTraitIds = setOf(
         LengthTrait::ID,
         PatternTrait::ID,
         RangeTrait::ID,
@@ -33,6 +32,13 @@ object ChangeConstrainedMemberType {
         EnumTrait::ID,
         RequiredTrait::ID,
     )
+
+    private val primitiveShapes = mutableMapOf<String, ShapeType>()
+
+    init {
+        primitiveShapes.put(ShapeType.BOOLEAN.name, ShapeType.BOOLEAN)
+        primitiveShapes.put(ShapeType.INTEGER.name, ShapeType.INTEGER)
+    }
 
     /// Returns members which have constraint traits applied to them
     private fun StructureShape.constrainedMembers() =
@@ -44,16 +50,27 @@ object ChangeConstrainedMemberType {
         val structure = model.expectShape(structureShapeId, StructureShape::class.java)
         val members : Map<String, MemberShape> = structure.constrainedMembers()
         return members.map { (_, shape) ->
-            shape.asMemberShape().map { it.makeNonConstrained(structureShapeId) }
+            shape.asMemberShape().map { it.makeNonConstrained(model, structureShapeId) }
         }
     }
 
-    private fun extractedStructureName(outer: ShapeId, memberShape: ShapeId) =
-        "${memberShape.namespace}#Extracted${memberShape.name}${memberShape.id}"
+    private fun extractedStructureName(memberShape: ShapeId, fieldName : String) =
+        "${memberShape.namespace}#Extracted${memberShape.name}${fieldName}"
 
-    private fun MemberShape.makeNonConstrained(outer: ShapeId) : MemberTransformation {
-        val prefix = "${outer.namespace}Extracted"
+    // Finds the primitive type of the member shape. So e.g. if x : PositiveInteger
+    // then it will find integer because -> `integer PositiveInteger`
+    private fun MemberShape.findPrimitiveShapeType(model : Model) : ShapeType {
+        val target = model.expectShape(this.target)
+        val shapeType: ShapeType? = primitiveShapes[this.target.name]
+        shapeType?.let {
+            return it
+        }
 
+        // Todo: Do we need to go recursive to find the type?
+        return ShapeType.INTEGER
+    }
+
+    private fun MemberShape.makeNonConstrained(model : Model, outer: ShapeId) : MemberTransformation {
         var constrainedTraits = mutableListOf<Trait>()
         var traitsToKeep = mutableListOf<Trait>()
 
@@ -67,9 +84,16 @@ object ChangeConstrainedMemberType {
             }
         }
 
+        //this.target.name
+
         // Extract the shape into an outer shape
-        val newOutsideShape = StructureShape.builder()
-            .id(extractedStructureName(outer, this.id))
+//        val newOutsideShape = StructureShape.builder()
+//            .id(extractedStructureName(this.id, this.memberName))
+//            .traits(constrainedTraits)
+//            .build()
+
+        val newOutsideShape = this.findPrimitiveShapeType(model).createBuilderForType()
+            .id(extractedStructureName(this.id, this.memberName))
             .traits(constrainedTraits)
             .build()
 
@@ -103,7 +127,7 @@ object ChangeConstrainedMemberType {
         }
 
         // Add all new shapes to the model
-        var newShapes = mutableListOf<StructureShape>()
+        var newShapes = mutableListOf<Shape>()
         for (t: Optional<MemberTransformation> in transformations) {
             if (t.isPresent) {
                 val transformation = t.get()
@@ -140,59 +164,26 @@ object ChangeConstrainedMemberType {
     private fun renameConstrainedFieldTarget(field: MemberShape) =
         "${field.id.name}${field.memberName}CM"
 
-    /**
-     * All new types that need to be defined for the given operation
-     */
-//    fun constrainedMembers(model: Model, operation : OperationShape) : List<StructureShape> {
-//        var newShapes = listOf<StructureShape>();
-//        operation.input.map { shapeId ->
-//            val inputShape: StructureShape = model.expectShape(shapeId, StructureShape::class.java)
-//            val fieldsWithConstraints = inputShape.constrainedMembers()
-//
-//            println(fieldsWithConstraints)
-//            //fieldsWithConstraints.forEach(
-//                // Define new target names for all of these fields
-//            //)
-//
-//            // 1. change constrained members with a new data type and add that
-//            // type to the model
-//
-//            // 2. have to keep them in the same position in case tomorrow we
-//            // use #repr(C)
-//            if (!fieldsWithConstraints.isEmpty()) {
-//                fieldsWithConstraints.map { (fieldName, fieldShape) ->
-//                    fieldShape.toBuilder().id(renameConstrainedFieldTarget("fahad"))
-//                    //fieldShape.toBuilder().id("fahad").build()
-//                    // Remove the constraint from the field but leave those
-//                    // that are non-constraint traits
-//                }
-//            }
-//
-//            // 2. keep non constrained traits on the new field
-//        }
-//
-//        return newShapes
-//    }
+    private fun empty(id: ShapeId) = StructureShape.builder().id(id)
 
-    private fun checkTransformer(model: Model){
-        val transformer = ModelTransformer.create()
-        transformer.mapShapes(model) {
-            println(it)
-            it
-//            val transformed: Optional<Shape> = it.asOperationShape().map { operation ->
-//                model.expectShape(operation.syntheticInputId())
-//                operation.toBuilder()
-//                    .input(operation.syntheticInputId())
-//                    .output(operation.syntheticOutputId())
-//                    .build()
-//            }
-//
-//            transformed.orElse(it)
+    interface RefactoringEngine {
+        fun refactor(model : Model, member: ShapeId) : MemberTransformation
+
+        companion object {
+            // Returns a RefactoringEngine that works with the given combination
+            // of traits applied on a member
+            fun createForTraits(traits : List<Trait>) =
+                ExtractAsStandaloneFile()
         }
-
-        val changeTo = MemberShape.builder().id("testmodel#GetPokemonAgeOutput\$age").target("fahad").build()
-        val model = transformer.replaceShapes(model, listOf(changeTo))
     }
 
-    private fun empty(id: ShapeId) = StructureShape.builder().id(id)
+    /**
+     * Extracts the target type into a separate type in the model and replaces
+     * the shape's target with that
+     */
+    class ExtractAsStandaloneFile : RefactoringEngine {
+        override fun refactor(model: Model, member: ShapeId): MemberTransformation {
+            TODO("Not yet implemented")
+        }
+    }
 }

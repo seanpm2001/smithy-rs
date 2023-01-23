@@ -1,7 +1,9 @@
 package software.amazon.smithy.rust.codegen.server.smithy
 
 import org.junit.jupiter.api.Test
+import software.amazon.smithy.model.shapes.ShapeId
 import software.amazon.smithy.model.shapes.StructureShape
+import software.amazon.smithy.model.transform.ModelTransformer
 import software.amazon.smithy.rust.codegen.core.smithy.ErrorsModule
 import software.amazon.smithy.rust.codegen.core.smithy.generators.error.OperationErrorGenerator
 import software.amazon.smithy.rust.codegen.core.smithy.transformers.OperationNormalizer
@@ -15,31 +17,37 @@ import software.amazon.smithy.rust.codegen.server.smithy.transformers.ChangeCons
 
 class ConstraintsMemberShapeTest {
     private val baseModel = """
-        namespace testmodel
-
-        operation GetPokemonAge {
-            input : GetPokemonAgeInput
-            output : GetPokemonAgeOutput
+        namespace weather
+        
+        service WeatherService {
+            operation: [GetWeather] 
         }
 
-        structure GetPokemonAgeOutput {
-            color : String
-            
-            @range(min: 1)
-            age : PositiveInteger
-            
-            @range(max: 100)
-            value: PositiveInteger 
+        operation GetWeather {
+            input : WeatherInput
+            output : WeatherOutput
+        }
+
+        structure WeatherInput {
+            coord : Coordinate
         }
         
-        structure GetPokemonAgeInput {
-            name: String
-            
-            @range(min: 0, max: 100)
+        structure WeatherOutput {
             id : Integer
+            main : String
+            description : String
+            
+            @range(max: 200)
+            degree : Centigrade            
         }
         
-        integer PositiveInteger
+        
+        structure Coordinate {
+            lat : Double
+            long : Double
+        }
+        
+        integer Centigrade
     """.asSmithyModel()
 
     @Test
@@ -51,5 +59,17 @@ class ConstraintsMemberShapeTest {
     @Test
     fun `check how operation normalizer works`() {
         var model = OperationNormalizer.transform(baseModel)
+    }
+
+    @Test
+    fun `print model`() {
+        val transformer = ModelTransformer.create()
+        transformer.mapShapes(baseModel) {
+            println(it)
+            it
+        }
+
+        val shape = baseModel.getShape(ShapeId.from("weather#Coordinate"))
+        println(shape)
     }
 }
