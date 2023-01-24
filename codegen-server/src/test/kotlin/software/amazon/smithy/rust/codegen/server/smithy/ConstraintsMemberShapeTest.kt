@@ -1,19 +1,14 @@
 package software.amazon.smithy.rust.codegen.server.smithy
 
 import org.junit.jupiter.api.Test
+import software.amazon.smithy.model.shapes.ModelSerializer
 import software.amazon.smithy.model.shapes.ShapeId
-import software.amazon.smithy.model.shapes.StructureShape
 import software.amazon.smithy.model.transform.ModelTransformer
-import software.amazon.smithy.rust.codegen.core.smithy.ErrorsModule
-import software.amazon.smithy.rust.codegen.core.smithy.generators.error.OperationErrorGenerator
 import software.amazon.smithy.rust.codegen.core.smithy.transformers.OperationNormalizer
-import software.amazon.smithy.rust.codegen.core.testutil.TestWorkspace
 import software.amazon.smithy.rust.codegen.core.testutil.asSmithyModel
-import software.amazon.smithy.rust.codegen.core.testutil.compileAndTest
-import software.amazon.smithy.rust.codegen.core.testutil.renderWithModelBuilder
-import software.amazon.smithy.rust.codegen.core.testutil.unitTest
-import software.amazon.smithy.rust.codegen.core.util.lookup
-import software.amazon.smithy.rust.codegen.server.smithy.transformers.ChangeConstrainedMemberType
+import software.amazon.smithy.rust.codegen.server.smithy.transformers.RefactorConstrainedMemberType
+import software.amazon.smithy.model.node.Node
+import java.io.File
 
 class ConstraintsMemberShapeTest {
     private val baseModel = """
@@ -38,22 +33,41 @@ class ConstraintsMemberShapeTest {
             description : String
             
             @range(max: 200)
-            degree : Centigrade            
+            degree : Centigrade
+
+            @range(max: 200)
+            degreeReal : Centigrade
+
+            @range(min: -10, max: 200)
+            degreeFeeling : FeelsLikeCentigrade
+
+            @length(min: 1, max: 10)
+            historicData: CentigradeList 
         }
-        
         
         structure Coordinate {
             lat : Double
             long : Double
         }
+
+        list CentigradeList {
+            member: Centigrade
+        }
         
-        integer Centigrade
+        integer FeelsLikeCentigrade
+        float Centigrade
     """.asSmithyModel()
 
     @Test
     fun `transform model`() {
-        val model = ChangeConstrainedMemberType.transform(baseModel)
+        val model = RefactorConstrainedMemberType.transform(baseModel)
         println("Transformed model: ${model.toString()}")
+        val serializer: ModelSerializer = ModelSerializer.builder().build()
+        val json = Node.prettyPrintJson(serializer.serialize(model))
+
+        File("output.txt").printWriter().use {
+            it.println(json)
+        }
     }
 
     @Test

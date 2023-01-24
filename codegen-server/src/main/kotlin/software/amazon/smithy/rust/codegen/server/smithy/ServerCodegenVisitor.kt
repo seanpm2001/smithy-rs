@@ -79,6 +79,7 @@ import software.amazon.smithy.rust.codegen.server.smithy.generators.protocol.Ser
 import software.amazon.smithy.rust.codegen.server.smithy.protocols.ServerProtocolLoader
 import software.amazon.smithy.rust.codegen.server.smithy.traits.isReachableFromOperationInput
 import software.amazon.smithy.rust.codegen.server.smithy.transformers.AttachValidationExceptionToConstrainedOperationInputsInAllowList
+import software.amazon.smithy.rust.codegen.server.smithy.transformers.RefactorConstrainedMemberType
 import software.amazon.smithy.rust.codegen.server.smithy.transformers.RemoveEbsModelValidationException
 import software.amazon.smithy.rust.codegen.server.smithy.transformers.ShapesReachableFromOperationInputTagger
 import java.util.logging.Logger
@@ -160,6 +161,9 @@ open class ServerCodegenVisitor(
             .let { ModelTransformer.create().copyServiceErrorsToOperations(it, settings.getService(it)) }
             // Add `Box<T>` to recursive shapes as necessary
             .let(RecursiveShapeBoxer::transform)
+            // Refactors constrained member shapes into non-constrained shapes of a new standalone type
+            // that has some constraints.
+            .let(RefactorConstrainedMemberType::transform)
             // Normalize operations by adding synthetic input and output shapes to every operation
             .let(OperationNormalizer::transform)
             // Remove the EBS model's own `ValidationException`, which collides with `smithy.framework#ValidationException`
