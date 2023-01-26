@@ -7,34 +7,22 @@ import software.amazon.smithy.model.shapes.OperationShape
 import software.amazon.smithy.model.shapes.Shape
 import software.amazon.smithy.model.shapes.ShapeId
 import software.amazon.smithy.model.shapes.StructureShape
-import software.amazon.smithy.model.traits.EnumTrait
-import software.amazon.smithy.model.traits.LengthTrait
-import software.amazon.smithy.model.traits.PatternTrait
-import software.amazon.smithy.model.traits.RangeTrait
-import software.amazon.smithy.model.traits.RequiredTrait
 import software.amazon.smithy.model.traits.Trait
-import software.amazon.smithy.model.traits.UniqueItemsTrait
+import software.amazon.smithy.model.traits.synthetic.OriginalShapeIdTrait
 import software.amazon.smithy.model.transform.ModelTransformer
+import software.amazon.smithy.rust.codegen.server.smithy.allConstraintTraits
 import software.amazon.smithy.rust.codegen.server.smithy.hasConstraintTrait
-import software.amazon.smithy.rust.codegen.server.smithy.traits.RefactoredMembershapeTrait
-import software.amazon.smithy.rust.codegen.server.smithy.transformers.RefactorConstrainedMemberType.constrainedMembers
+import software.amazon.smithy.rust.codegen.server.smithy.traits.RefactoredStructureTrait
 import software.amazon.smithy.utils.ToSmithyBuilder
 import java.lang.IllegalStateException
 import java.util.*
 import kotlin.streams.toList
 
 object RefactorConstrainedMemberType {
-    // Todo: is there a case when we might need to have a List<Shape> as new types that are defined?
-    data class MemberTransformation(val newShape : Shape, val memberToChange: MemberShape, val traitsToKeep : List<Trait>)
-
-    // TODO: there must be some way to get these IDs?
-    private val constraintTraitIds = setOf(
-        LengthTrait.ID,
-        PatternTrait.ID,
-        RangeTrait.ID,
-        UniqueItemsTrait.ID,
-        EnumTrait.ID,
-        RequiredTrait.ID,
+    private data class MemberTransformation(
+        val newShape: Shape,
+        val memberToChange: MemberShape,
+        val traitsToKeep: List<Trait>,
     )
 
     /// Returns members which have constraint traits applied to them
@@ -43,7 +31,7 @@ object RefactorConstrainedMemberType {
             memberField.hasConstraintTrait()
         }
 
-    private fun transformConstrainedMembers(model : Model, structureShapeId : ShapeId) : List<MemberTransformation> =
+    private fun transformConstrainedMembers(model: Model, structureShapeId: ShapeId): List<MemberTransformation> =
         model.expectShape(structureShapeId, StructureShape::class.java)
             .constrainedMembers()
             .map { (_, shape: MemberShape) ->
@@ -52,41 +40,56 @@ object RefactorConstrainedMemberType {
 
     // Todo: change the following to use the correct name of the struct using maybe
     // symbolProvider.toSymbol(memberShape).name
-    private fun extractedStructureName(memberShape: ShapeId) =
-        "${memberShape.namespace}#Refactored${memberShape.name}${memberShape.member.orElse(null)}"
+    private fun extractedStructureName(model: Model, memberShape: ShapeId): String {
+        val structName = memberShape.name
+        val memberName = memberShape.member.orElse(null)
+            .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+        var extractedStructName = "${memberShape.namespace}#Refactored${structName}${memberName}"
+
+        // Ensure the name does not already exist in the model, else make it unique
+        // by appending a random number as the suffix
+        for (i in 0..10) {
+            if (model.getShape(ShapeId.from(extractedStructName)).isEmpty)
+                break;
+            extractedStructName = extractedStructName.plus((0..10).random())
+        }
+        return extractedStructName
+    }
 
     // Returns the transformation that would be required to turn the given member shape
     // into a non-constrained member shape.
-    private fun MemberShape.makeNonConstrained(model : Model) : MemberTransformation? {
-        val (constrainedTraits, otherTraits, ) = this.allTraits.toList()
+    private fun MemberShape.makeNonConstrained(model: Model): MemberTransformation? {
+        val (constrainedTraits, otherTraits) = this.allTraits.values
             .partition {
-                constraintTraitIds.contains(it.first)
-            }
-            .let { partIt ->
-                val traitsToRefactor = partIt.first.map { it.second }
-                // Add refactoring trait to the list of all traits that need to be kept on the member
-                val traitsToKeep = partIt.second.map { it.second } + listOf(RefactoredMembershapeTrait(this.id))
-                Pair(traitsToRefactor, traitsToKeep)
+                allConstraintTraits.contains(it.javaClass)
             }
 
+        // No transformation required in case the given MemberShape has no constraints.
         if (constrainedTraits.isEmpty())
             return null
 
         // Create a new standalone shape of the same target as the target of the member e.g.
         // someX : Centigrade, where integer : Centigrade, then the new shape should be
         // integer: newShape
-        val shape = model.expectShape(this.target)
+        val targetShape = model.expectShape(this.target)
 
-        // The shape has to be a buildable type otherwise it cannot be refactored out
-        if (shape is ToSmithyBuilder<*>) {
-            when (val builder = shape.toBuilder()) {
-                 is AbstractShapeBuilder<*,*> -> {
-                     val standaloneShape = builder.id(extractedStructureName(this.id))
-                         .traits(constrainedTraits)
-                         .build()
+        // The shape has to be a buildable type otherwise it cannot be refactored.
+        if (targetShape is ToSmithyBuilder<*>) {
+            when (val builder = targetShape.toBuilder()) {
+                is AbstractShapeBuilder<*, *> -> {
+                    // Use the target builder to create a new standalone shape that would
+                    // be added to the model later on. Put all the constraint traits that
+                    // were on the member shape onto the new shape. Also apply the
+                    // RefactoredMemberTrait on the new shape.
+                    val standaloneShape = builder.id(extractedStructureName(model, this.id))
+                        .traits(constrainedTraits + RefactoredStructureTrait())
+                        .build()
 
-                     return MemberTransformation(standaloneShape, this, otherTraits)
-                 }
+                    // Since the new shape has not been added to the model as yet, the current
+                    // memberShape's target cannot be changed to the new shape.
+                    return MemberTransformation(standaloneShape, this, otherTraits + OriginalShapeIdTrait(this.target))
+                }
+
                 else -> throw IllegalStateException("Constraint traits cannot to applied on ${this.id}") // FZ confirm how we are throwing exceptions
             }
         }
@@ -95,10 +98,6 @@ object RefactorConstrainedMemberType {
     }
 
     fun transform(model: Model): Model {
-        // Can composite types be constrained? basically do we need to keep track
-        // of a subtype that we have already visited and now is being constrained?
-
-        // Todo: maybe go directly to structure shapes instead of from operations
         val transformations = model.shapes(OperationShape::class.java).toList().flatMap { operation ->
             // it might not have any input structures
             val transformedInputMembers: Optional<List<MemberTransformation>> = operation.input.map { shapeId ->
@@ -119,8 +118,8 @@ object RefactorConstrainedMemberType {
             .addShapes(newShapes)
             .build()
 
-        // Change all original constrained member shapes with the new stand alone types
-        // we have defined.
+        // Change all original constrained member shapes with the new standalone types,
+        // and keep only the non-constraint traits on the member shape.
         val membersToChange = transformations.map {
             it.memberToChange.toBuilder()
                 .target(it.newShape.id)
@@ -130,26 +129,5 @@ object RefactorConstrainedMemberType {
 
         return ModelTransformer.create()
             .replaceShapes(modelWithExtraShapes, membersToChange)
-    }
-
-    interface RefactoringEngine {
-        fun refactor(model : Model, member: ShapeId) : MemberTransformation
-
-        companion object {
-            // Returns a RefactoringEngine that works with the given combination
-            // of traits applied on a member
-            fun createForTraits(traits : List<Trait>) =
-                RefactorAsStandaloneType()
-        }
-    }
-
-    /**
-     * Extracts the target type into a separate type in the model and replaces
-     * the shape's target with that
-     */
-    class RefactorAsStandaloneType : RefactoringEngine {
-        override fun refactor(model: Model, member: ShapeId): MemberTransformation {
-            TODO("Not yet implemented")
-        }
     }
 }
