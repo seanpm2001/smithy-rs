@@ -3,7 +3,6 @@ package software.amazon.smithy.rust.codegen.server.smithy.transformers
 import software.amazon.smithy.model.Model
 import software.amazon.smithy.model.shapes.AbstractShapeBuilder
 import software.amazon.smithy.model.shapes.MemberShape
-import software.amazon.smithy.model.shapes.OperationShape
 import software.amazon.smithy.model.shapes.Shape
 import software.amazon.smithy.model.shapes.ShapeId
 import software.amazon.smithy.model.shapes.StructureShape
@@ -17,7 +16,6 @@ import software.amazon.smithy.rust.codegen.server.smithy.traits.RefactoredStruct
 import software.amazon.smithy.utils.ToSmithyBuilder
 import java.lang.IllegalStateException
 import java.util.*
-import kotlin.streams.toList
 
 object RefactorConstrainedMemberType {
     private data class MemberTransformation(
@@ -33,7 +31,7 @@ object RefactorConstrainedMemberType {
     fun transform(model: Model): Model {
         val walker = DirectedWalker(model)
 
-        val transformations = model.shapes(OperationShape::class.java).toList()
+        val transformations = model.operationShapes
             .flatMap { operation ->
                 listOf(operation.input.orNull(), operation.output.orNull())
             }
@@ -65,12 +63,12 @@ object RefactorConstrainedMemberType {
         val modelBuilder = model.toBuilder()
         val memberShapesToChange: MutableList<MemberShape> = mutableListOf()
 
-        for (t in transformations) {
-            modelBuilder.addShape(t.newShape)
+        transformations.forEach {
+            modelBuilder.addShape(it.newShape)
 
-            val changedMember = t.memberToChange.toBuilder()
-                .target(t.newShape.id)
-                .traits(t.traitsToKeep)
+            val changedMember = it.memberToChange.toBuilder()
+                .target(it.newShape.id)
+                .traits(it.traitsToKeep)
                 .build()
             memberShapesToChange.add(changedMember)
         }
@@ -92,20 +90,43 @@ object RefactorConstrainedMemberType {
     /**
      * Returns the unique (within the model) name of the refactored shape
      */
-    private fun nameOfRefactoredShape(model: Model, memberShape: ShapeId): String {
+    private fun nameOfRefactoredShape(model: Model, memberShape: ShapeId): ShapeId {
         val structName = memberShape.name
         val memberName = memberShape.member.orElse(null)
             .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-        var extractedStructName = "${memberShape.namespace}#Refactored${structName}${memberName}"
+
+        fun makeStructName(suffix: String) =
+            ShapeId.from("${memberShape.namespace}#Refactored${structName}${memberName}$suffix")
+
+        fun structIsUnique(newName : ShapeId) =
+            model.getShape(newName).isEmpty
 
         // Ensure the name does not already exist in the model, else make it unique
-        // by keep appending a new random number as the suffix.
-        for (i in 0..10) {
-            if (model.getShape(ShapeId.from(extractedStructName)).isEmpty)
-                break;
-            extractedStructName = extractedStructName.plus((0..10).random())
+        // by appending a new number as the suffix.
+        var suffix = ""
+        (0..100).forEach {
+            val extractedStructName = makeStructName(suffix)
+            if (structIsUnique(extractedStructName))
+                return extractedStructName
+
+            suffix = "_$it"
         }
-        return extractedStructName
+
+        // A unique type could not be found by adding a numeric suffix to it
+        // will combine struct names to generate a unique name now.
+        suffix = "_"
+
+        model.listShapes
+            .filterIsInstance<StructureShape>()
+            .map {
+                suffix = suffix.plus(it.id.name)
+
+                val extractedStructName = makeStructName(suffix)
+                if (structIsUnique(extractedStructName))
+                    return extractedStructName
+            }
+
+        throw IllegalStateException("A unique name for the refactored structure type could not be found")
     }
 
     /**

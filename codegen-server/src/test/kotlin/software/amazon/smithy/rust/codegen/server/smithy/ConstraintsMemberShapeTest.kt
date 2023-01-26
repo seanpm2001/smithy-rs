@@ -2,11 +2,13 @@ package software.amazon.smithy.rust.codegen.server.smithy
 
 import org.junit.jupiter.api.Test
 import software.amazon.smithy.model.Model
+import software.amazon.smithy.model.neighbor.RelationshipType
 import software.amazon.smithy.model.shapes.ModelSerializer
 import software.amazon.smithy.model.shapes.ShapeId
 import software.amazon.smithy.rust.codegen.core.testutil.asSmithyModel
 import software.amazon.smithy.rust.codegen.server.smithy.transformers.RefactorConstrainedMemberType
 import software.amazon.smithy.model.node.Node
+import software.amazon.smithy.rust.codegen.core.smithy.DirectedWalker
 import software.amazon.smithy.rust.codegen.core.smithy.RuntimeConfig
 import software.amazon.smithy.rust.codegen.core.smithy.RuntimeCrateLocation
 import software.amazon.smithy.rust.codegen.core.testutil.generatePluginContext
