@@ -137,6 +137,8 @@ private val unsupportedConstraintsOnMemberShapes = allConstraintTraits - Require
 fun validateOperationsWithConstrainedInputHaveValidationExceptionAttached(
     model: Model,
     service: ServiceShape,
+    // TODO Docs
+    validationExceptionShapeId: ShapeId,
 ): ValidationResult {
     // Traverse the model and error out if an operation uses constrained input, but it does not have
     // `ValidationException` attached in `errors`. https://github.com/awslabs/smithy-rs/pull/1199#discussion_r809424783
@@ -151,7 +153,7 @@ fun validateOperationsWithConstrainedInputHaveValidationExceptionAttached(
             walker.walkShapes(operationShape.inputShape(model))
                 .any { it is SetShape || it is EnumShape || it.hasConstraintTrait() }
         }
-        .filter { !it.errors.contains(ShapeId.from("smithy.framework#ValidationException")) }
+        .filter { !it.errors.contains(validationExceptionShapeId) }
         .map { OperationWithConstrainedInputWithoutValidationException(it) }
         .toSet()
 
@@ -167,11 +169,11 @@ fun validateOperationsWithConstrainedInputHaveValidationExceptionAttached(
                     """
 
                     ```smithy
-                    use smithy.framework#ValidationException
+                    use $validationExceptionShapeId
 
                     operation ${it.shape.id.name} {
                         ...
-                        errors: [..., ValidationException] // <-- Add this.
+                        errors: [..., ${validationExceptionShapeId.name}] // <-- Add this.
                     }
                     ```
                     """.trimIndent(),

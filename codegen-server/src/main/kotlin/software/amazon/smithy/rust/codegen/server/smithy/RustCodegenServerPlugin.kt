@@ -18,6 +18,7 @@ import software.amazon.smithy.rust.codegen.core.smithy.StreamingShapeMetadataPro
 import software.amazon.smithy.rust.codegen.core.smithy.StreamingShapeSymbolProvider
 import software.amazon.smithy.rust.codegen.core.smithy.SymbolVisitor
 import software.amazon.smithy.rust.codegen.core.smithy.SymbolVisitorConfig
+import software.amazon.smithy.rust.codegen.server.smithy.customizations.CustomValidationExceptionWithReasonDecorator
 import software.amazon.smithy.rust.codegen.server.smithy.customizations.ServerRequiredCustomizations
 import software.amazon.smithy.rust.codegen.server.smithy.customize.CombinedServerCodegenDecorator
 import java.util.logging.Level
@@ -44,7 +45,11 @@ class RustCodegenServerPlugin : SmithyBuildPlugin {
         // - context (e.g. the of the operation)
         // - writer: The active RustWriter at the given location
         val codegenDecorator: CombinedServerCodegenDecorator =
-            CombinedServerCodegenDecorator.fromClasspath(context, ServerRequiredCustomizations())
+            CombinedServerCodegenDecorator.fromClasspath(
+                context,
+                ServerRequiredCustomizations(),
+                CustomValidationExceptionWithReasonDecorator(),
+            )
 
         // ServerCodegenVisitor is the main driver of code generation that traverses the model and generates code
         logger.info("Loaded plugin to generate pure Rust bindings for the server SDK")

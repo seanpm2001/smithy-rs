@@ -20,6 +20,7 @@ import software.amazon.smithy.model.shapes.OperationShape
 import software.amazon.smithy.model.shapes.ServiceShape
 import software.amazon.smithy.model.shapes.SetShape
 import software.amazon.smithy.model.shapes.Shape
+import software.amazon.smithy.model.shapes.ShapeId
 import software.amazon.smithy.model.shapes.ShapeVisitor
 import software.amazon.smithy.model.shapes.ShortShape
 import software.amazon.smithy.model.shapes.StringShape
@@ -62,6 +63,7 @@ import software.amazon.smithy.rust.codegen.server.smithy.generators.ConstrainedM
 import software.amazon.smithy.rust.codegen.server.smithy.generators.ConstrainedNumberGenerator
 import software.amazon.smithy.rust.codegen.server.smithy.generators.ConstrainedStringGenerator
 import software.amazon.smithy.rust.codegen.server.smithy.generators.ConstrainedTraitForEnumGenerator
+import software.amazon.smithy.rust.codegen.server.smithy.generators.CustomValidationExceptionConversionGenerator
 import software.amazon.smithy.rust.codegen.server.smithy.generators.MapConstraintViolationGenerator
 import software.amazon.smithy.rust.codegen.server.smithy.generators.PubCrateConstrainedCollectionGenerator
 import software.amazon.smithy.rust.codegen.server.smithy.generators.PubCrateConstrainedMapGenerator
@@ -101,6 +103,7 @@ open class ServerCodegenVisitor(
     protected var codegenContext: ServerCodegenContext
     protected var protocolGeneratorFactory: ProtocolGeneratorFactory<ServerProtocolGenerator, ServerCodegenContext>
     protected var protocolGenerator: ServerProtocolGenerator
+    private var customValidationExceptionConversionGenerator: CustomValidationExceptionConversionGenerator?
 
     init {
         val symbolVisitorConfig =
@@ -143,6 +146,8 @@ open class ServerCodegenVisitor(
             serverSymbolProviders.constraintViolationSymbolProvider,
             serverSymbolProviders.pubCrateConstrainedShapeSymbolProvider,
         )
+
+        customValidationExceptionConversionGenerator = codegenDecorator.customValidationExceptionConversion(codegenContext)
 
         rustCrate = RustCrate(context.fileManifest, codegenContext.symbolProvider, settings.codegenConfig)
         protocolGenerator = protocolGeneratorFactory.buildProtocolGenerator(codegenContext)
@@ -195,10 +200,14 @@ open class ServerCodegenVisitor(
             "[rust-server-codegen] Generating Rust server for service $service, protocol ${codegenContext.protocol}",
         )
 
+        val validationExceptionShapeId =
+            codegenDecorator.customValidationExceptionConversion(codegenContext)?.shapeId
+                ?: ShapeId.from("smithy.framework#ValidationException")
         for (validationResult in listOf(
             validateOperationsWithConstrainedInputHaveValidationExceptionAttached(
                 model,
                 service,
+                validationExceptionShapeId,
             ),
             validateUnsupportedConstraints(model, service, codegenContext.settings.codegenConfig),
         )) {
@@ -260,7 +269,7 @@ open class ServerCodegenVisitor(
         writer: RustWriter,
     ) {
         if (codegenContext.settings.codegenConfig.publicConstrainedTypes || shape.isReachableFromOperationInput()) {
-            val serverBuilderGenerator = ServerBuilderGenerator(codegenContext, shape)
+            val serverBuilderGenerator = ServerBuilderGenerator(codegenContext, shape, customValidationExceptionConversionGenerator)
             serverBuilderGenerator.render(writer)
 
             if (codegenContext.settings.codegenConfig.publicConstrainedTypes) {
@@ -450,7 +459,7 @@ open class ServerCodegenVisitor(
         } else if (!shape.hasTrait<EnumTrait>() && shape.isDirectlyConstrained(codegenContext.symbolProvider)) {
             logger.info("[rust-server-codegen] Generating a constrained string $shape")
             rustCrate.withModule(ModelsModule) {
-                ConstrainedStringGenerator(codegenContext, this, shape).render()
+                ConstrainedStringGenerator(codegenContext, this, shape, customValidationExceptionConversionGenerator).render()
             }
         }
     }

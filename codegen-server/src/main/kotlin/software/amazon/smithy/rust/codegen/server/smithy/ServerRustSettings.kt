@@ -83,12 +83,15 @@ data class ServerCodegenConfig(
     override val debugMode: Boolean = defaultDebugMode,
     val publicConstrainedTypes: Boolean = defaultPublicConstrainedTypes,
     val ignoreUnsupportedConstraints: Boolean = defaultIgnoreUnsupportedConstraints,
+    // TODO Docs
+    val experimentalCustomValidationExceptionWithReasonPleaseDoNotUse: String? = defaultExperimentalCustomValidationExceptionWithReasonPleaseDoNotUse
 ) : CoreCodegenConfig(
     formatTimeoutSeconds, debugMode,
 ) {
     companion object {
         private const val defaultPublicConstrainedTypes = true
         private const val defaultIgnoreUnsupportedConstraints = false
+        private val defaultExperimentalCustomValidationExceptionWithReasonPleaseDoNotUse = null
 
         fun fromCodegenConfigAndNode(coreCodegenConfig: CoreCodegenConfig, node: Optional<ObjectNode>) =
             if (node.isPresent) {
@@ -97,6 +100,7 @@ data class ServerCodegenConfig(
                     debugMode = coreCodegenConfig.debugMode,
                     publicConstrainedTypes = node.get().getBooleanMemberOrDefault("publicConstrainedTypes", defaultPublicConstrainedTypes),
                     ignoreUnsupportedConstraints = node.get().getBooleanMemberOrDefault("ignoreUnsupportedConstraints", defaultIgnoreUnsupportedConstraints),
+                    experimentalCustomValidationExceptionWithReasonPleaseDoNotUse = node.get().getStringMemberOrDefault("experimentalCustomValidationExceptionWithReasonPleaseDoNotUse", defaultExperimentalCustomValidationExceptionWithReasonPleaseDoNotUse),
                 )
             } else {
                 ServerCodegenConfig(
