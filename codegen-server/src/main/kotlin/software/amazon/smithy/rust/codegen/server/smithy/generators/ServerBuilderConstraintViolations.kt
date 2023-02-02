@@ -38,7 +38,7 @@ class ServerBuilderConstraintViolations(
     codegenContext: ServerCodegenContext,
     private val shape: StructureShape,
     private val builderTakesInUnconstrainedTypes: Boolean,
-    private val customValidationExceptionConversionGenerator: CustomValidationExceptionConversionGenerator? = null,
+    private val validationExceptionConversionGenerator: ValidationExceptionConversionGenerator,
 ) {
     private val model = codegenContext.model
     private val symbolProvider = codegenContext.symbolProvider
@@ -155,26 +155,6 @@ class ServerBuilderConstraintViolations(
     }
 
     private fun renderAsValidationExceptionFieldList(writer: RustWriter) {
-        val validationExceptionFieldWritable = customValidationExceptionConversionGenerator?.builderConstraintViolationImplBlock(all)
-            ?: writable {
-                rustBlock("match self") {
-                    all.forEach {
-                        if (it.hasInner()) {
-                            rust("""ConstraintViolation::${it.name()}(inner) => inner.as_validation_exception_field(path + "/${it.forMember.memberName}"),""")
-                        } else {
-                            rust(
-                                """
-                                ConstraintViolation::${it.name()} => crate::model::ValidationExceptionField {
-                                    message: format!("Value null at '{}/${it.forMember.memberName}' failed to satisfy constraint: Member must not be null", path),
-                                    path: path + "/${it.forMember.memberName}",
-                                },
-                                """,
-                            )
-                        }
-                    }
-                }
-            }
-
         writer.rustTemplate(
             """
             impl ConstraintViolation {
@@ -183,7 +163,7 @@ class ServerBuilderConstraintViolations(
                 }
             }
             """,
-            "ValidationExceptionFieldWritable" to validationExceptionFieldWritable,
+            "ValidationExceptionFieldWritable" to validationExceptionConversionGenerator.builderConstraintViolationImplBlock((all)),
             "String" to RuntimeType.String,
         )
     }

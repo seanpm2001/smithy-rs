@@ -88,7 +88,7 @@ import software.amazon.smithy.rust.codegen.server.smithy.wouldHaveConstrainedWra
 class ServerBuilderGenerator(
     codegenContext: ServerCodegenContext,
     private val shape: StructureShape,
-    private val customValidationExceptionWithReasonConversionGenerator: CustomValidationExceptionConversionGenerator? = null
+    private val customValidationExceptionWithReasonConversionGenerator: ValidationExceptionConversionGenerator,
 ) {
     companion object {
         /**
@@ -213,33 +213,12 @@ class ServerBuilderGenerator(
     }
 
     private fun renderImplFromConstraintViolationForRequestRejection(writer: RustWriter) {
-        if (customValidationExceptionWithReasonConversionGenerator != null) {
-            writer.rustTemplate(
-                """
-                #{Converter:W}
-                """,
-                "Converter" to customValidationExceptionWithReasonConversionGenerator.renderImplFromConstraintViolationForRequestRejection()
-            )
-        } else {
-            writer.rustTemplate(
-                """
-                impl #{From}<ConstraintViolation> for #{RequestRejection} {
-                    fn from(constraint_violation: ConstraintViolation) -> Self {
-                        let first_validation_exception_field = constraint_violation.as_validation_exception_field("".to_owned());
-                        let validation_exception = crate::error::ValidationException {
-                            message: format!("1 validation error detected. {}", &first_validation_exception_field.message),
-                            field_list: Some(vec![first_validation_exception_field]),
-                        };
-                        Self::ConstraintViolation(
-                            crate::operation_ser::serialize_structure_crate_error_validation_exception(&validation_exception)
-                                .expect("validation exceptions should never fail to serialize; please file a bug report under https://github.com/awslabs/smithy-rs/issues")
-                        )
-                    }
-                }
-                """,
-                *codegenScope,
-            )
-        }
+        writer.rustTemplate(
+            """
+            #{Converter:W}
+            """,
+            "Converter" to customValidationExceptionWithReasonConversionGenerator.renderImplFromConstraintViolationForRequestRejection()
+        )
     }
 
     private fun renderImplFromBuilderForMaybeConstrained(writer: RustWriter) {

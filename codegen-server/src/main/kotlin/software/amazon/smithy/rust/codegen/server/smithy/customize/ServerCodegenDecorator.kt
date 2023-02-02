@@ -11,7 +11,7 @@ import software.amazon.smithy.rust.codegen.core.smithy.customize.CombinedCoreCod
 import software.amazon.smithy.rust.codegen.core.smithy.customize.CoreCodegenDecorator
 import software.amazon.smithy.rust.codegen.core.smithy.protocols.ProtocolMap
 import software.amazon.smithy.rust.codegen.server.smithy.ServerCodegenContext
-import software.amazon.smithy.rust.codegen.server.smithy.generators.CustomValidationExceptionConversionGenerator
+import software.amazon.smithy.rust.codegen.server.smithy.generators.ValidationExceptionConversionGenerator
 import software.amazon.smithy.rust.codegen.server.smithy.generators.protocol.ServerProtocolGenerator
 import java.util.logging.Logger
 
@@ -24,7 +24,7 @@ interface ServerCodegenDecorator : CoreCodegenDecorator<ServerCodegenContext> {
     fun protocols(serviceId: ShapeId, currentProtocols: ServerProtocolMap): ServerProtocolMap = currentProtocols
 
     // TODO Docs
-    fun customValidationExceptionConversion(codegenContext: ServerCodegenContext): CustomValidationExceptionConversionGenerator? = null
+    fun validationExceptionConversion(codegenContext: ServerCodegenContext): ValidationExceptionConversionGenerator? = null
 }
 
 /**
@@ -45,9 +45,10 @@ class CombinedServerCodegenDecorator(private val decorators: List<ServerCodegenD
             decorator.protocols(serviceId, protocolMap)
         }
 
-    override fun customValidationExceptionConversion(codegenContext: ServerCodegenContext):
-        CustomValidationExceptionConversionGenerator? =
-        decorators.sortedBy { it.order }.firstNotNullOfOrNull { it.customValidationExceptionConversion(codegenContext) }
+    override fun validationExceptionConversion(codegenContext: ServerCodegenContext): ValidationExceptionConversionGenerator =
+        // We use `firstNotNullOf` instead of `firstNotNullOfOrNull` because the [SmithyValidationExceptionDecorator]
+        // is registered.
+        decorators.sortedBy { it.order }.firstNotNullOf { it.validationExceptionConversion(codegenContext) }
 
     companion object {
         fun fromClasspath(

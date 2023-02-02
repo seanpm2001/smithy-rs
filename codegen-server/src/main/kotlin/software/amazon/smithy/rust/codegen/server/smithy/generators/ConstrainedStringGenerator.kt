@@ -47,7 +47,7 @@ class ConstrainedStringGenerator(
     val codegenContext: ServerCodegenContext,
     val writer: RustWriter,
     val shape: StringShape,
-    val customValidationExceptionConversionGenerator: CustomValidationExceptionConversionGenerator? = null,
+    val validationExceptionConversionGenerator: ValidationExceptionConversionGenerator,
 ) {
     val model = codegenContext.model
     val constrainedShapeSymbolProvider = codegenContext.constrainedShapeSymbolProvider
@@ -155,30 +155,14 @@ class ConstrainedStringGenerator(
         )
 
         if (shape.isReachableFromOperationInput()) {
-            if (customValidationExceptionConversionGenerator != null) {
-                writer.rustTemplate(
-                    """
-                    impl ${constraintViolation.name} {
-                        #{StringShapeConstraintViolationImplBlock:W}
-                    }
-                    """,
-                    "StringShapeConstraintViolationImplBlock" to customValidationExceptionConversionGenerator.stringShapeConstraintViolationImplBlock(stringConstraintsInfo)
-                )
-            } else {
-                writer.rustTemplate(
-                    """
-                    impl ${constraintViolation.name} {
-                        pub(crate) fn as_validation_exception_field(self, path: #{String}) -> crate::model::ValidationExceptionField {
-                            match self {
-                                #{ValidationExceptionFields:W}
-                            }
-                        }
-                    }
-                    """,
-                    "String" to RuntimeType.String,
-                    "ValidationExceptionFields" to constraintsInfo.map { it.asValidationExceptionField }.join("\n"),
-                )
-            }
+            writer.rustTemplate(
+                """
+                impl ${constraintViolation.name} {
+                    #{StringShapeConstraintViolationImplBlock:W}
+                }
+                """,
+                "StringShapeConstraintViolationImplBlock" to validationExceptionConversionGenerator.stringShapeConstraintViolationImplBlock(stringConstraintsInfo)
+            )
         }
     }
 

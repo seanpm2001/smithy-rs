@@ -63,7 +63,7 @@ import software.amazon.smithy.rust.codegen.server.smithy.generators.ConstrainedM
 import software.amazon.smithy.rust.codegen.server.smithy.generators.ConstrainedNumberGenerator
 import software.amazon.smithy.rust.codegen.server.smithy.generators.ConstrainedStringGenerator
 import software.amazon.smithy.rust.codegen.server.smithy.generators.ConstrainedTraitForEnumGenerator
-import software.amazon.smithy.rust.codegen.server.smithy.generators.CustomValidationExceptionConversionGenerator
+import software.amazon.smithy.rust.codegen.server.smithy.generators.ValidationExceptionConversionGenerator
 import software.amazon.smithy.rust.codegen.server.smithy.generators.MapConstraintViolationGenerator
 import software.amazon.smithy.rust.codegen.server.smithy.generators.PubCrateConstrainedCollectionGenerator
 import software.amazon.smithy.rust.codegen.server.smithy.generators.PubCrateConstrainedMapGenerator
@@ -103,7 +103,7 @@ open class ServerCodegenVisitor(
     protected var codegenContext: ServerCodegenContext
     protected var protocolGeneratorFactory: ProtocolGeneratorFactory<ServerProtocolGenerator, ServerCodegenContext>
     protected var protocolGenerator: ServerProtocolGenerator
-    private var customValidationExceptionConversionGenerator: CustomValidationExceptionConversionGenerator?
+    private var validationExceptionConversionGenerator: ValidationExceptionConversionGenerator
 
     init {
         val symbolVisitorConfig =
@@ -147,7 +147,8 @@ open class ServerCodegenVisitor(
             serverSymbolProviders.pubCrateConstrainedShapeSymbolProvider,
         )
 
-        customValidationExceptionConversionGenerator = codegenDecorator.customValidationExceptionConversion(codegenContext)
+        // We can use a not-null assertion because [CombinedServerCodegenDecorator] returns a not null value.
+        validationExceptionConversionGenerator = codegenDecorator.validationExceptionConversion(codegenContext)!!
 
         rustCrate = RustCrate(context.fileManifest, codegenContext.symbolProvider, settings.codegenConfig)
         protocolGenerator = protocolGeneratorFactory.buildProtocolGenerator(codegenContext)
@@ -200,9 +201,7 @@ open class ServerCodegenVisitor(
             "[rust-server-codegen] Generating Rust server for service $service, protocol ${codegenContext.protocol}",
         )
 
-        val validationExceptionShapeId =
-            codegenDecorator.customValidationExceptionConversion(codegenContext)?.shapeId
-                ?: ShapeId.from("smithy.framework#ValidationException")
+        val validationExceptionShapeId = validationExceptionConversionGenerator.shapeId
         for (validationResult in listOf(
             validateOperationsWithConstrainedInputHaveValidationExceptionAttached(
                 model,
@@ -269,7 +268,7 @@ open class ServerCodegenVisitor(
         writer: RustWriter,
     ) {
         if (codegenContext.settings.codegenConfig.publicConstrainedTypes || shape.isReachableFromOperationInput()) {
-            val serverBuilderGenerator = ServerBuilderGenerator(codegenContext, shape, customValidationExceptionConversionGenerator)
+            val serverBuilderGenerator = ServerBuilderGenerator(codegenContext, shape, validationExceptionConversionGenerator)
             serverBuilderGenerator.render(writer)
 
             if (codegenContext.settings.codegenConfig.publicConstrainedTypes) {
@@ -290,7 +289,7 @@ open class ServerCodegenVisitor(
 
         if (!codegenContext.settings.codegenConfig.publicConstrainedTypes) {
             val serverBuilderGeneratorWithoutPublicConstrainedTypes =
-                ServerBuilderGeneratorWithoutPublicConstrainedTypes(codegenContext, shape)
+                ServerBuilderGeneratorWithoutPublicConstrainedTypes(codegenContext, shape, validationExceptionConversionGenerator)
             serverBuilderGeneratorWithoutPublicConstrainedTypes.render(writer)
 
             writer.implBlock(shape, codegenContext.symbolProvider) {
@@ -459,7 +458,7 @@ open class ServerCodegenVisitor(
         } else if (!shape.hasTrait<EnumTrait>() && shape.isDirectlyConstrained(codegenContext.symbolProvider)) {
             logger.info("[rust-server-codegen] Generating a constrained string $shape")
             rustCrate.withModule(ModelsModule) {
-                ConstrainedStringGenerator(codegenContext, this, shape, customValidationExceptionConversionGenerator).render()
+                ConstrainedStringGenerator(codegenContext, this, shape, validationExceptionConversionGenerator).render()
             }
         }
     }

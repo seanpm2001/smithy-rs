@@ -31,6 +31,7 @@ import software.amazon.smithy.rust.codegen.core.util.lookup
 import software.amazon.smithy.rust.codegen.core.util.toPascalCase
 import software.amazon.smithy.rust.codegen.core.util.toSnakeCase
 import software.amazon.smithy.rust.codegen.server.smithy.ServerCodegenConfig
+import software.amazon.smithy.rust.codegen.server.smithy.customizations.SmithyValidationExceptionConversionGenerator
 import software.amazon.smithy.rust.codegen.server.smithy.testutil.serverTestCodegenContext
 import software.amazon.smithy.rust.codegen.server.smithy.testutil.serverTestRustSettings
 import software.amazon.smithy.rust.codegen.server.smithy.testutil.serverTestSymbolProvider
@@ -175,7 +176,7 @@ class ServerBuilderDefaultValuesTest {
                 codegenConfig = ServerCodegenConfig(publicConstrainedTypes = false),
             ),
         )
-        val builderGenerator = ServerBuilderGeneratorWithoutPublicConstrainedTypes(codegenContext, struct)
+        val builderGenerator = ServerBuilderGeneratorWithoutPublicConstrainedTypes(codegenContext, struct, SmithyValidationExceptionConversionGenerator(codegenContext))
 
         writer.implBlock(struct, symbolProvider) {
             builderGenerator.renderConvenienceMethod(writer)
@@ -189,7 +190,7 @@ class ServerBuilderDefaultValuesTest {
     private fun writeServerBuilderGenerator(writer: RustWriter, model: Model, symbolProvider: RustSymbolProvider) {
         val struct = model.lookup<StructureShape>("com.test#MyStruct")
         val codegenContext = serverTestCodegenContext(model)
-        val builderGenerator = ServerBuilderGenerator(codegenContext, struct)
+        val builderGenerator = ServerBuilderGenerator(codegenContext, struct, SmithyValidationExceptionConversionGenerator(codegenContext))
 
         writer.implBlock(struct, symbolProvider) {
             builderGenerator.renderConvenienceMethod(writer)

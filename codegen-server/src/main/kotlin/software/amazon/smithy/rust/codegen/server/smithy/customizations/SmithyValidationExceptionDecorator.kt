@@ -13,32 +13,29 @@ import software.amazon.smithy.rust.codegen.server.smithy.ServerRuntimeType
 import software.amazon.smithy.rust.codegen.server.smithy.customize.ServerCodegenDecorator
 import software.amazon.smithy.rust.codegen.server.smithy.generators.ConstraintViolation
 import software.amazon.smithy.rust.codegen.server.smithy.generators.ValidationExceptionConversionGenerator
-import software.amazon.smithy.rust.codegen.server.smithy.generators.Length
-import software.amazon.smithy.rust.codegen.server.smithy.generators.Pattern
 import software.amazon.smithy.rust.codegen.server.smithy.generators.StringTraitInfo
-import software.amazon.smithy.rust.codegen.server.smithy.validationErrorMessage
+import software.amazon.smithy.rust.codegen.server.smithy.generators.TraitInfo
 
 // TODO Docs
-class CustomValidationExceptionWithReasonDecorator: ServerCodegenDecorator {
+class SmithyValidationExceptionDecorator: ServerCodegenDecorator {
     override val name: String
-        get() = "CustomValidationExceptionWithReasonDecorator"
+        get() = "SmithyValidationExceptionDecorator"
     override val order: Byte
-        get() = -69
+        get() = 69
 
-    override fun validationExceptionConversion(codegenContext: ServerCodegenContext):
-        ValidationExceptionConversionGenerator? =
-        if (codegenContext.settings.codegenConfig.experimentalCustomValidationExceptionWithReasonPleaseDoNotUse != null) {
-            ValidationExceptionWithReasonConversionGenerator(codegenContext)
-        } else {
-            null
-        }
+    override fun validationExceptionConversion(codegenContext: ServerCodegenContext): ValidationExceptionConversionGenerator =
+        SmithyValidationExceptionConversionGenerator(codegenContext)
 }
 
 // TODO Docs
-class ValidationExceptionWithReasonConversionGenerator(private val codegenContext: ServerCodegenContext):
+class SmithyValidationExceptionConversionGenerator(private val codegenContext: ServerCodegenContext):
     ValidationExceptionConversionGenerator {
-    override val shapeId: ShapeId =
-        ShapeId.from(codegenContext.settings.codegenConfig.experimentalCustomValidationExceptionWithReasonPleaseDoNotUse)
+
+    // Define a companion object so that we can refer to this shape id globally.
+    companion object {
+        val SHAPE_ID: ShapeId = ShapeId.from("smithy.framework#ValidationException")
+    }
+    override val shapeId: ShapeId = SHAPE_ID
 
     override fun renderImplFromConstraintViolationForRequestRejection(): Writable = writable {
         val codegenScope = arrayOf(
@@ -52,8 +49,7 @@ class ValidationExceptionWithReasonConversionGenerator(private val codegenContex
                     let first_validation_exception_field = constraint_violation.as_validation_exception_field("".to_owned());
                     let validation_exception = crate::error::ValidationException {
                         message: format!("1 validation error detected. {}", &first_validation_exception_field.message),
-                        reason: crate::model::ValidationExceptionReason::FieldValidationFailed,
-                        fields: Some(vec![first_validation_exception_field]),
+                        field_list: Some(vec![first_validation_exception_field]),
                     };
                     Self::ConstraintViolation(
                         crate::operation_ser::serialize_structure_crate_error_validation_exception(&validation_exception)
@@ -67,36 +63,9 @@ class ValidationExceptionWithReasonConversionGenerator(private val codegenContex
     }
 
     override fun stringShapeConstraintViolationImplBlock(stringConstraintsInfo: Collection<StringTraitInfo>): Writable = writable {
-        val validationExceptionFields =
-            stringConstraintsInfo.map {
-                writable {
-                    when (it) {
-                        is Pattern -> {
-                            rust(
-                                """
-                                Self::Pattern(string) => crate::model::ValidationExceptionField {
-                                    message: format!("${it.patternTrait.validationErrorMessage()}", &string, &path, r##"${it.patternTrait.pattern}"##),
-                                    name: path,
-                                    reason: crate::model::ValidationExceptionFieldReason::PatternNotValid,
-                                },
-                                """,
-                            )
-                        }
-                        is Length -> {
-                            rust(
-                                """
-                                Self::Length(length) => crate::model::ValidationExceptionField {
-                                    message: format!("${it.lengthTrait.validationErrorMessage()}", length, &path),
-                                    name: path,
-                                    reason: crate::model::ValidationExceptionFieldReason::LengthNotValid,
-                                },
-                                """,
-                            )
-                        }
-                    }
-                }
-            }.join("\n")
-
+        val constraintsInfo: List<TraitInfo> =
+            stringConstraintsInfo
+            .map(StringTraitInfo::toTraitInfo)
         rustTemplate(
             """
             pub(crate) fn as_validation_exception_field(self, path: #{String}) -> crate::model::ValidationExceptionField {
@@ -106,7 +75,7 @@ class ValidationExceptionWithReasonConversionGenerator(private val codegenContex
             }
             """,
             "String" to RuntimeType.String,
-            "ValidationExceptionFields" to validationExceptionFields,
+            "ValidationExceptionFields" to constraintsInfo.map { it.asValidationExceptionField }.join("\n"),
         )
     }
 
@@ -120,8 +89,7 @@ class ValidationExceptionWithReasonConversionGenerator(private val codegenContex
                         """
                         ConstraintViolation::${it.name()} => crate::model::ValidationExceptionField {
                             message: format!("Value null at '{}/${it.forMember.memberName}' failed to satisfy constraint: Member must not be null", path),
-                            name: path + "/${it.forMember.memberName}",
-                            reason: crate::model::ValidationExceptionFieldReason::Other,
+                            path: path + "/${it.forMember.memberName}",
                         },
                         """,
                     )

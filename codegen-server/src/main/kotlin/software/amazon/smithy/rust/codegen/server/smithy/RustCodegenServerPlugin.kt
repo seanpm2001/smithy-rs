@@ -20,6 +20,7 @@ import software.amazon.smithy.rust.codegen.core.smithy.SymbolVisitor
 import software.amazon.smithy.rust.codegen.core.smithy.SymbolVisitorConfig
 import software.amazon.smithy.rust.codegen.server.smithy.customizations.CustomValidationExceptionWithReasonDecorator
 import software.amazon.smithy.rust.codegen.server.smithy.customizations.ServerRequiredCustomizations
+import software.amazon.smithy.rust.codegen.server.smithy.customizations.SmithyValidationExceptionDecorator
 import software.amazon.smithy.rust.codegen.server.smithy.customize.CombinedServerCodegenDecorator
 import java.util.logging.Level
 import java.util.logging.Logger
@@ -48,6 +49,7 @@ class RustCodegenServerPlugin : SmithyBuildPlugin {
             CombinedServerCodegenDecorator.fromClasspath(
                 context,
                 ServerRequiredCustomizations(),
+                SmithyValidationExceptionDecorator(),
                 CustomValidationExceptionWithReasonDecorator(),
             )
 
