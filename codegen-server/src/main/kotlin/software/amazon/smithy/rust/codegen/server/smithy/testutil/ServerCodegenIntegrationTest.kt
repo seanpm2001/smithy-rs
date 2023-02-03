@@ -3,51 +3,50 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package software.amazon.smithy.rust.codegen.client.testutil
+package software.amazon.smithy.rust.codegen.server.smithy.testutil
 
 import software.amazon.smithy.build.PluginContext
 import software.amazon.smithy.build.SmithyBuildPlugin
 import software.amazon.smithy.model.Model
-import software.amazon.smithy.rust.codegen.client.smithy.ClientCodegenContext
-import software.amazon.smithy.rust.codegen.client.smithy.RustClientCodegenPlugin
-import software.amazon.smithy.rust.codegen.client.smithy.customize.ClientCodegenDecorator
 import software.amazon.smithy.rust.codegen.core.smithy.RustCrate
 import software.amazon.smithy.rust.codegen.core.testutil.IntegrationTestParams
 import software.amazon.smithy.rust.codegen.core.testutil.codegenIntegrationTest
+import software.amazon.smithy.rust.codegen.server.smithy.RustCodegenServerPlugin
+import software.amazon.smithy.rust.codegen.server.smithy.ServerCodegenContext
+import software.amazon.smithy.rust.codegen.server.smithy.customize.ServerCodegenDecorator
 import java.nio.file.Path
 
-fun clientIntegrationTest(
+/**
+ * This file is entirely analogous to [software.amazon.smithy.rust.codegen.client.testutil.ClientCodegenIntegrationTest.kt].
+ */
+
+fun serverIntegrationTest(
     model: Model,
     params: IntegrationTestParams = IntegrationTestParams(),
-    additionalDecorators: List<ClientCodegenDecorator> = listOf(),
-    test: (ClientCodegenContext, RustCrate) -> Unit = { _, _ -> },
+    additionalDecorators: List<ServerCodegenDecorator> = listOf(),
+    test: (ServerCodegenContext, RustCrate) -> Unit = { _, _ -> },
 ): Path {
     fun invokeRustCodegenPlugin(ctx: PluginContext) {
-        val codegenDecorator = object : ClientCodegenDecorator {
+        val codegenDecorator = object : ServerCodegenDecorator {
             override val name: String = "Add tests"
             override val order: Byte = 0
 
             override fun classpathDiscoverable(): Boolean = false
 
-            override fun extras(codegenContext: ClientCodegenContext, rustCrate: RustCrate) {
+            override fun extras(codegenContext: ServerCodegenContext, rustCrate: RustCrate) {
                 test(codegenContext, rustCrate)
             }
         }
-        RustClientCodegenPlugin().executeWithDecorator(ctx, codegenDecorator, *additionalDecorators.toTypedArray())
+        // TODO Rename
+        RustCodegenServerPlugin().executeWithDecorator(ctx, codegenDecorator, *additionalDecorators.toTypedArray())
     }
     return codegenIntegrationTest(model, params, invokePlugin = ::invokeRustCodegenPlugin)
 }
 
-/**
- * A `SmithyBuildPlugin` that accepts an additional decorator.
- *
- * This exists to allow tests to easily customize the _real_ build without needing to list out customizations
- * or attempt to manually discover them from the path.
- */
-abstract class ClientDecoratableBuildPlugin : SmithyBuildPlugin {
+abstract class ServerDecoratableBuildPlugin : SmithyBuildPlugin {
     abstract fun executeWithDecorator(
         context: PluginContext,
-        vararg decorator: ClientCodegenDecorator,
+        vararg decorator: ServerCodegenDecorator,
     )
 
     override fun execute(context: PluginContext) {

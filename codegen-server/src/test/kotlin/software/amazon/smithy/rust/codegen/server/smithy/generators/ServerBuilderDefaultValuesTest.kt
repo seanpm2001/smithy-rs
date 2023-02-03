@@ -183,7 +183,12 @@ class ServerBuilderDefaultValuesTest {
         }
         builderGenerator.render(writer)
 
-        ServerEnumGenerator(codegenContext, writer, model.lookup<EnumShape>("com.test#Language")).render()
+        ServerEnumGenerator(
+            codegenContext,
+            writer,
+            model.lookup<EnumShape>("com.test#Language"),
+            SmithyValidationExceptionConversionGenerator(codegenContext),
+        ).render()
         StructureGenerator(model, symbolProvider, writer, struct).render()
     }
 
@@ -197,7 +202,12 @@ class ServerBuilderDefaultValuesTest {
         }
         builderGenerator.render(writer)
 
-        ServerEnumGenerator(codegenContext, writer, model.lookup<EnumShape>("com.test#Language")).render()
+        ServerEnumGenerator(
+            codegenContext,
+            writer,
+            model.lookup<EnumShape>("com.test#Language"),
+            SmithyValidationExceptionConversionGenerator(codegenContext),
+        ).render()
         StructureGenerator(model, symbolProvider, writer, struct).render()
     }
 

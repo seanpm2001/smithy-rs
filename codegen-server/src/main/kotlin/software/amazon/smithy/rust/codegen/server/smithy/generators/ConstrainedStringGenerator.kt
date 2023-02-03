@@ -47,7 +47,7 @@ class ConstrainedStringGenerator(
     val codegenContext: ServerCodegenContext,
     val writer: RustWriter,
     val shape: StringShape,
-    val validationExceptionConversionGenerator: ValidationExceptionConversionGenerator,
+    private val validationExceptionConversionGenerator: ValidationExceptionConversionGenerator,
 ) {
     val model = codegenContext.model
     val constrainedShapeSymbolProvider = codegenContext.constrainedShapeSymbolProvider
