@@ -103,7 +103,7 @@ open class ServerCodegenVisitor(
     protected var codegenContext: ServerCodegenContext
     protected var protocolGeneratorFactory: ProtocolGeneratorFactory<ServerProtocolGenerator, ServerCodegenContext>
     protected var protocolGenerator: ServerProtocolGenerator
-    private var validationExceptionConversionGenerator: ValidationExceptionConversionGenerator
+    protected var validationExceptionConversionGenerator: ValidationExceptionConversionGenerator
 
     init {
         val symbolVisitorConfig =
