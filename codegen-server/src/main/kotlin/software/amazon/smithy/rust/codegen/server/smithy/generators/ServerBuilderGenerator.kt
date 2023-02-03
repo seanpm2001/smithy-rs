@@ -217,7 +217,7 @@ class ServerBuilderGenerator(
             """
             #{Converter:W}
             """,
-            "Converter" to customValidationExceptionWithReasonConversionGenerator.renderImplFromConstraintViolationForRequestRejection()
+            "Converter" to customValidationExceptionWithReasonConversionGenerator.renderImplFromConstraintViolationForRequestRejection(),
         )
     }
 

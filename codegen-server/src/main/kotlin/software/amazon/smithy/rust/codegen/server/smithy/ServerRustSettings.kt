@@ -83,8 +83,13 @@ data class ServerCodegenConfig(
     override val debugMode: Boolean = defaultDebugMode,
     val publicConstrainedTypes: Boolean = defaultPublicConstrainedTypes,
     val ignoreUnsupportedConstraints: Boolean = defaultIgnoreUnsupportedConstraints,
-    // TODO Docs
-    val experimentalCustomValidationExceptionWithReasonPleaseDoNotUse: String? = defaultExperimentalCustomValidationExceptionWithReasonPleaseDoNotUse
+    /**
+     * A flag to enable _experimental_ support for custom validation exceptions via the
+     * [CustomValidationExceptionWithReasonDecorator] decorator.
+     * TODO(https://github.com/awslabs/smithy-rs/pull/2053): this will go away once we implement the RFC, when users will be
+     *  able to define the converters in their Rust application code.
+     */
+    val experimentalCustomValidationExceptionWithReasonPleaseDoNotUse: String? = defaultExperimentalCustomValidationExceptionWithReasonPleaseDoNotUse,
 ) : CoreCodegenConfig(
     formatTimeoutSeconds, debugMode,
 ) {

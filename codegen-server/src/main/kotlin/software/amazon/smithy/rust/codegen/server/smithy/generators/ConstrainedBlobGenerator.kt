@@ -133,7 +133,7 @@ class ConstrainedBlobGenerator(
                     #{BlobShapeConstraintViolationImplBlock}
                 }
                 """,
-                "BlobShapeConstraintViolationImplBlock" to validationExceptionConversionGenerator.blobShapeConstraintViolationImplBlock(blobConstraintsInfo)
+                "BlobShapeConstraintViolationImplBlock" to validationExceptionConversionGenerator.blobShapeConstraintViolationImplBlock(blobConstraintsInfo),
             )
         }
     }

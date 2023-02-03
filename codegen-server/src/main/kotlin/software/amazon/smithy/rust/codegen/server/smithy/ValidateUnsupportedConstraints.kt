@@ -134,10 +134,12 @@ data class ValidationResult(val shouldAbort: Boolean, val messages: List<LogMess
 
 private val unsupportedConstraintsOnMemberShapes = allConstraintTraits - RequiredTrait::class.java
 
+/**
+ * Validate that all constrained operations have the shape [validationExceptionShapeId] shape attached to their errors.
+ */
 fun validateOperationsWithConstrainedInputHaveValidationExceptionAttached(
     model: Model,
     service: ServiceShape,
-    // TODO Docs
     validationExceptionShapeId: ShapeId,
 ): ValidationResult {
     // Traverse the model and error out if an operation uses constrained input, but it does not have

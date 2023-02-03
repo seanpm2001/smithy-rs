@@ -161,7 +161,7 @@ class ConstrainedStringGenerator(
                     #{StringShapeConstraintViolationImplBlock:W}
                 }
                 """,
-                "StringShapeConstraintViolationImplBlock" to validationExceptionConversionGenerator.stringShapeConstraintViolationImplBlock(stringConstraintsInfo)
+                "StringShapeConstraintViolationImplBlock" to validationExceptionConversionGenerator.stringShapeConstraintViolationImplBlock(stringConstraintsInfo),
             )
         }
     }

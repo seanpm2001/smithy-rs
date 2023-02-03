@@ -83,7 +83,7 @@ class ServerEnumGeneratorTest {
             codegenContext,
             writer,
             shape,
-            SmithyValidationExceptionConversionGenerator(codegenContext)
+            SmithyValidationExceptionConversionGenerator(codegenContext),
         ).render()
         writer.toString() shouldNotContain "#[non_exhaustive]"
     }

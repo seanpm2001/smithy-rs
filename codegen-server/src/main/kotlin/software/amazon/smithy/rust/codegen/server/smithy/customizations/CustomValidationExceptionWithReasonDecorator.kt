@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package software.amazon.smithy.rust.codegen.server.smithy.customizations
 
 import software.amazon.smithy.model.Model
@@ -23,18 +28,26 @@ import software.amazon.smithy.rust.codegen.server.smithy.customize.ServerCodegen
 import software.amazon.smithy.rust.codegen.server.smithy.generators.BlobLength
 import software.amazon.smithy.rust.codegen.server.smithy.generators.CollectionTraitInfo
 import software.amazon.smithy.rust.codegen.server.smithy.generators.ConstraintViolation
-import software.amazon.smithy.rust.codegen.server.smithy.generators.ValidationExceptionConversionGenerator
 import software.amazon.smithy.rust.codegen.server.smithy.generators.Length
 import software.amazon.smithy.rust.codegen.server.smithy.generators.Pattern
 import software.amazon.smithy.rust.codegen.server.smithy.generators.Range
 import software.amazon.smithy.rust.codegen.server.smithy.generators.StringTraitInfo
-import software.amazon.smithy.rust.codegen.server.smithy.generators.TraitInfo
+import software.amazon.smithy.rust.codegen.server.smithy.generators.ValidationExceptionConversionGenerator
 import software.amazon.smithy.rust.codegen.server.smithy.generators.isKeyConstrained
 import software.amazon.smithy.rust.codegen.server.smithy.generators.isValueConstrained
 import software.amazon.smithy.rust.codegen.server.smithy.validationErrorMessage
 
-// TODO Docs
-class CustomValidationExceptionWithReasonDecorator: ServerCodegenDecorator {
+/**
+ * A decorator that adds code to convert from constraint violations to a custom `ValidationException` shape that is very
+ * similar to `smithy.framework#ValidationException`, with an additional `reason` field.
+ *
+ * The shape definition is in [CustomValidationExceptionWithReasonDecoratorTest].
+ *
+ * This is just an example to showcase experimental support for custom validation exceptions.
+ * TODO(https://github.com/awslabs/smithy-rs/pull/2053): this will go away once we implement the RFC, when users will be
+ *  able to define the converters in their Rust application code.
+ */
+class CustomValidationExceptionWithReasonDecorator : ServerCodegenDecorator {
     override val name: String
         get() = "CustomValidationExceptionWithReasonDecorator"
     override val order: Byte
@@ -49,8 +62,7 @@ class CustomValidationExceptionWithReasonDecorator: ServerCodegenDecorator {
         }
 }
 
-// TODO Docs
-class ValidationExceptionWithReasonConversionGenerator(private val codegenContext: ServerCodegenContext):
+class ValidationExceptionWithReasonConversionGenerator(private val codegenContext: ServerCodegenContext) :
     ValidationExceptionConversionGenerator {
     override val shapeId: ShapeId =
         ShapeId.from(codegenContext.settings.codegenConfig.experimentalCustomValidationExceptionWithReasonPleaseDoNotUse)
@@ -243,7 +255,7 @@ class ValidationExceptionWithReasonConversionGenerator(private val codegenContex
 
     override fun collectionShapeConstraintViolationImplBlock(
         collectionConstraintsInfo:
-        Collection<CollectionTraitInfo>,
+            Collection<CollectionTraitInfo>,
         isMemberConstrained: Boolean,
     ) = writable {
         val validationExceptionFields = collectionConstraintsInfo.map {
@@ -271,7 +283,6 @@ class ValidationExceptionWithReasonConversionGenerator(private val codegenContex
                                 },
                             """,
                         )
-
                     }
                 }
             }

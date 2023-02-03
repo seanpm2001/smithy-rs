@@ -149,7 +149,7 @@ class ConstrainedNumberGenerator(
                         #{NumberShapeConstraintViolationImplBlock}
                     }
                     """,
-                    "NumberShapeConstraintViolationImplBlock" to validationExceptionConversionGenerator.numberShapeConstraintViolationImplBlock(rangeInfo)
+                    "NumberShapeConstraintViolationImplBlock" to validationExceptionConversionGenerator.numberShapeConstraintViolationImplBlock(rangeInfo),
                 )
             }
         }

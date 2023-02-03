@@ -22,8 +22,6 @@ typealias ServerProtocolMap = ProtocolMap<ServerProtocolGenerator, ServerCodegen
  */
 interface ServerCodegenDecorator : CoreCodegenDecorator<ServerCodegenContext> {
     fun protocols(serviceId: ShapeId, currentProtocols: ServerProtocolMap): ServerProtocolMap = currentProtocols
-
-    // TODO Docs
     fun validationExceptionConversion(codegenContext: ServerCodegenContext): ValidationExceptionConversionGenerator? = null
 }
 

@@ -59,7 +59,7 @@ open class ServerEnumGenerator(
                         #{EnumShapeConstraintViolationImplBlock:W}
                     }
                     """,
-                    "EnumShapeConstraintViolationImplBlock" to validationExceptionConversionGenerator.enumShapeConstraintViolationImplBlock(enumTrait)
+                    "EnumShapeConstraintViolationImplBlock" to validationExceptionConversionGenerator.enumShapeConstraintViolationImplBlock(enumTrait),
                 )
             }
         }

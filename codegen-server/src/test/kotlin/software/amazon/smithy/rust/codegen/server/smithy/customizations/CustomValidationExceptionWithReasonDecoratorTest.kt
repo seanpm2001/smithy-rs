@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package software.amazon.smithy.rust.codegen.server.smithy.customizations
 
 import org.junit.jupiter.api.Test
@@ -85,11 +90,9 @@ fun swapOutSmithyValidationExceptionForCustomOne(model: Model): Model {
 
 internal class CustomValidationExceptionWithReasonDecoratorTest {
     @Test
-    fun `constrained model with the CustomValidationExceptionWithReasonDecorator applied compiles`() {
+    fun `constraints model with the CustomValidationExceptionWithReasonDecorator applied compiles`() {
         var model = File("../codegen-core/common-test-models/constraints.smithy").readText().asSmithyModel()
         model = swapOutSmithyValidationExceptionForCustomOne(model)
-
-        // TODO Run with the default config; it should fail.
 
         serverIntegrationTest(
             model,

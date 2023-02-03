@@ -43,7 +43,7 @@ class RustCodegenServerPlugin : ServerDecoratableBuildPlugin() {
      */
     override fun executeWithDecorator(
         context: PluginContext,
-        vararg decorator: ServerCodegenDecorator
+        vararg decorator: ServerCodegenDecorator,
     ) {
         Logger.getLogger(ReservedWordSymbolProvider::class.java.name).level = Level.OFF
         val codegenDecorator =
