@@ -102,7 +102,6 @@ use aws_smithy_http_tower::parse_response::ParseResponseLayer;
 use aws_smithy_types::error::display::DisplayErrorContext;
 use aws_smithy_types::retry::ProvideErrorKind;
 use aws_smithy_types::timeout::OperationTimeoutConfig;
-use std::error::Error;
 use std::sync::Arc;
 use timeout::ClientTimeoutParams;
 use tower::{Layer, Service, ServiceBuilder, ServiceExt};
@@ -117,8 +116,8 @@ use tracing::{debug_span, field, field::display, Instrument};
 /// for filling in any request parameters that aren't specified by the Smithy protocol definition,
 /// such as those used for routing (like the URL), authentication, and authorization.
 ///
-/// The middleware takes the form of a [`tower::Layer`] that wraps the actual connection for each
-/// request. The [`tower::Service`] that the middleware produces must accept requests of the type
+/// The middleware takes the form of a [`tower::Layer`][Layer] that wraps the actual connection for each
+/// request. The [`tower::Service`][Service] that the middleware produces must accept requests of the type
 /// [`aws_smithy_http::operation::Request`] and return responses of the type
 /// [`http::Response<SdkBody>`], most likely by modifying the provided request in place, passing it
 /// to the inner service, and then ultimately returning the inner service's response.
@@ -152,8 +151,9 @@ impl<C, M> Client<C, M>
 where
     M: Default,
 {
-    /// Create a Smithy client from the given `connector`, a middleware default, the [standard
-    /// retry policy](crate::retry::Standard), and the [`default_async_sleep`](aws_smithy_async::rt::sleep::default_async_sleep)
+    /// Create a Smithy client from the given `connector`, a middleware default,
+    /// the [standard retry policy](retry::Standard),
+    /// and the [`default_async_sleep`](aws_smithy_async::rt::sleep::default_async_sleep)
     /// sleep implementation.
     pub fn new(connector: C) -> Self {
         Builder::new()
@@ -223,11 +223,11 @@ where
                     .new_request_policy(self.sleep_impl.clone()),
             )
             .layer(TimeoutLayer::new(timeout_params.operation_attempt_timeout))
+            .layer(ParseResponseLayer::<O, Retry>::new())
             .layer(AsyncMapRequestLayer::for_mapper(
                 transparent::TransparentStage,
             ))
             .layer(MapRequestLayer::for_mapper(transparent::TransparentStage))
-            .layer(ParseResponseLayer::<O, Retry>::new())
             // These layers can be considered as occurring in order. That is, first invoke the
             // customer-provided middleware, then dispatch dispatch over the wire.
             .layer(&self.middleware)
@@ -252,9 +252,14 @@ where
         }
         let op = Operation::from_parts(req, parts);
 
-        let result = async move { check_send_sync(svc).ready().await?.call(op).await }
-            .instrument(span.clone())
-            .await;
+        let result = async move {
+            check_send_sync(svc)
+                // .ready().await?
+                .call(op)
+                .await
+        }
+        .instrument(span.clone())
+        .await;
         match &result {
             Ok(_) => {
                 span.record("status", &"ok");
