@@ -3,11 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+//! An example module that defines "transparent" `MapRequest` layers used for testing purposes.
+
 use aws_smithy_http::middleware::{AsyncMapRequest, MapRequest};
 use aws_smithy_http::operation::Request;
 use std::future::Future;
 use std::pin::Pin;
 
+/// A stage compatible with `MapRequest`/`AsyncMapRequest` used for testing service builders.
 #[derive(Clone, Debug)]
 pub struct TransparentStage;
 
@@ -19,7 +22,7 @@ impl MapRequest for TransparentStage {
     }
 
     fn apply(&self, request: Request) -> Result<Request, Self::Error> {
-        request.augment(|mut req, conf| Ok(req))
+        request.augment(|req, _conf| Ok(req))
     }
 }
 
