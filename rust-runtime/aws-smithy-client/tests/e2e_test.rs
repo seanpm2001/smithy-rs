@@ -99,6 +99,8 @@ fn test_operation() -> Operation<TestOperationParser, TestRetryClassifier> {
 
 #[tokio::test]
 async fn end_to_end_retry_test() {
+    tracing_subscriber::fmt::init();
+
     fn req() -> http::Request<SdkBody> {
         http::Request::builder()
             .body(SdkBody::from("request body"))
@@ -121,17 +123,17 @@ async fn end_to_end_retry_test() {
     // 1 failing response followed by 1 successful response
     let events = vec![
         // First operation
-        (req(), err()),
-        (req(), err()),
-        (req(), ok()),
+        (req(), err()), // 95
+        (req(), err()), // 90
+        (req(), ok()),  // 85 + 5
         // Second operation
-        (req(), err()),
-        (req(), ok()),
+        (req(), err()), // 90
+        (req(), ok()),  // 85 + 5
         // Third operation will fail, only errors
-        (req(), err()),
-        (req(), err()),
-        (req(), err()),
-        (req(), err()),
+        (req(), err()), // 90
+        (req(), err()), // 85
+        (req(), err()), // 80
+        (req(), err()), // 75
     ];
     let conn = TestConnection::new(events);
     let retry_config = aws_smithy_client::retry::Config::default()

@@ -8,7 +8,7 @@
 use crate::SdkError;
 use aws_smithy_async::future::timeout::Timeout;
 use aws_smithy_async::rt::sleep::{AsyncSleep, Sleep};
-use aws_smithy_http::operation::Operation;
+use aws_smithy_http::result::SdkSuccess;
 use aws_smithy_types::timeout::OperationTimeoutConfig;
 use pin_project_lite::pin_project;
 use std::future::Future;
@@ -180,9 +180,9 @@ impl<F> TimeoutServiceFuture<F> {
 
 impl<InnerFuture, T, E> Future for TimeoutServiceFuture<InnerFuture>
 where
-    InnerFuture: Future<Output = Result<T, SdkError<E>>>,
+    InnerFuture: Future<Output = Result<SdkSuccess<T>, SdkError<E>>>,
 {
-    type Output = Result<T, SdkError<E>>;
+    type Output = Result<SdkSuccess<T>, SdkError<E>>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let (future, kind, duration) = match self.project() {
@@ -203,19 +203,20 @@ where
     }
 }
 
-impl<H, R, InnerService, E> tower::Service<Operation<H, R>> for TimeoutService<InnerService>
+impl<InnerService, Req, T, E> tower::Service<Req> for TimeoutService<InnerService>
 where
-    InnerService: tower::Service<Operation<H, R>, Error = SdkError<E>>,
+    InnerService: tower::Service<Req, Response = SdkSuccess<T>, Error = SdkError<E>>,
+    InnerService::Future: Future<Output = Result<SdkSuccess<T>, SdkError<E>>>,
 {
     type Response = InnerService::Response;
-    type Error = aws_smithy_http::result::SdkError<E>;
+    type Error = InnerService::Error;
     type Future = TimeoutServiceFuture<InnerService::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, req: Operation<H, R>) -> Self::Future {
+    fn call(&mut self, req: Req) -> Self::Future {
         let future = self.inner.call(req);
 
         if let Some(params) = &self.params {

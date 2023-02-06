@@ -33,7 +33,7 @@ use tracing::Instrument;
 /// local state.
 pub trait NewRequestPolicy
 where
-    Self::Policy: Send + Sync,
+    Self::Policy: Send + Sync + 'static,
 {
     /// The type of the per-request policy mechanism.
     type Policy;

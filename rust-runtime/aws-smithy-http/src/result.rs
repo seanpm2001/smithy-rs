@@ -97,7 +97,7 @@ pub struct ServiceError<E, R> {
     /// Modeled service error
     source: E,
     /// Raw response from the service
-    raw: R,
+    pub raw: R,
 }
 
 impl<E, R> ServiceError<E, R> {

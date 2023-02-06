@@ -23,6 +23,7 @@
 
 pub mod bounds;
 pub mod boxing;
+pub mod counter;
 pub mod erase;
 pub mod retry;
 pub mod transparent;
@@ -102,7 +103,8 @@ use aws_smithy_http_tower::parse_response::ParseResponseLayer;
 use aws_smithy_types::error::display::DisplayErrorContext;
 use aws_smithy_types::retry::ProvideErrorKind;
 use aws_smithy_types::timeout::OperationTimeoutConfig;
-use boxing::BoxingLayer;
+pub use boxing::BoxingLayer;
+use counter::{CounterLayer, TokenBucket};
 use std::error::Error;
 use std::sync::Arc;
 use timeout::ClientTimeoutParams;
@@ -139,6 +141,7 @@ pub struct Client<
     retry_policy: RetryPolicy,
     operation_timeout_config: OperationTimeoutConfig,
     sleep_impl: Option<Arc<dyn AsyncSleep>>,
+    token_bucket: TokenBucket,
 }
 
 impl Client<(), (), ()> {
@@ -184,7 +187,7 @@ where
         O: Send + Sync + 'static,
         E: std::error::Error + Send + Sync + 'static,
         // Hey Esteban! Remove this 'static bound
-        Retry: Send + Sync + 'static,
+        Retry: ClassifyRetry<SdkSuccess<T>, SdkError<E>> + Send + Sync + 'static,
         R::Policy: bounds::SmithyRetryPolicy<O, T, E, Retry>,
         bounds::Parsed<<M as bounds::SmithyMiddleware<C>>::Service, O, Retry>:
             Service<Operation<O, Retry>, Response = SdkSuccess<T>, Error = SdkError<E>> + Clone,
@@ -205,7 +208,7 @@ where
         O: Send + Sync + 'static,
         E: std::error::Error + Send + Sync + 'static,
         // Hey Esteban! Remove this 'static bound
-        Retry: Send + Sync + 'static,
+        Retry: ClassifyRetry<SdkSuccess<T>, SdkError<E>> + Send + Sync + 'static,
         R::Policy: bounds::SmithyRetryPolicy<O, T, E, Retry>,
         // This bound is not _technically_ inferred by all the previous bounds, but in practice it
         // is because _we_ know that there is only implementation of Service for Parsed
@@ -222,13 +225,13 @@ where
             ClientTimeoutParams::new(&self.operation_timeout_config, self.sleep_impl.clone());
 
         let svc = ServiceBuilder::new()
-            .layer(TimeoutLayer::new(timeout_params.operation_timeout))
-            .retry(
-                self.retry_policy
-                    .new_request_policy(self.sleep_impl.clone()),
-            )
-            .layer(TimeoutLayer::new(timeout_params.operation_attempt_timeout))
-            .layer(BoxingLayer::new())
+            // .layer(TimeoutLayer::new(timeout_params.operation_timeout))
+            // .retry(
+            //     self.retry_policy
+            //         .new_request_policy(self.sleep_impl.clone()),
+            // )
+            // .layer(TimeoutLayer::new(timeout_params.operation_attempt_timeout))
+            .layer(CounterLayer::new(self.token_bucket.clone()))
             .layer(ParseResponseLayer::<O, Retry>::new())
             // These layers can be considered as occurring in order. That is, first invoke the
             // customer-provided middleware, then dispatch dispatch over the wire.
@@ -254,9 +257,14 @@ where
         }
         let op = Operation::from_parts(req, parts);
 
-        let result = async move { check_send_sync(svc).ready().await?.call(op).await }
-            .instrument(span.clone())
-            .await;
+        let result = async move {
+            check_send_sync(svc)
+                // .ready().await?
+                .call(op)
+                .await
+        }
+        .instrument(span.clone())
+        .await;
         match &result {
             Ok(_) => {
                 span.record("status", &"ok");
