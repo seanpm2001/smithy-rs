@@ -8,7 +8,6 @@
 use crate::SdkError;
 use aws_smithy_async::future::timeout::Timeout;
 use aws_smithy_async::rt::sleep::AsyncSleep;
-use aws_smithy_http::result::SdkSuccess;
 use aws_smithy_types::timeout::OperationTimeoutConfig;
 use std::future::Future;
 use std::pin::Pin;
@@ -143,9 +142,9 @@ impl<S> Layer<S> for TimeoutLayer {
     }
 }
 
-impl<Req, S, T, E> tower::Service<Req> for TimeoutService<S>
+impl<Req, S, E> tower::Service<Req> for TimeoutService<S>
 where
-    S: tower::Service<Req, Response = SdkSuccess<T>, Error = SdkError<E>>,
+    S: tower::Service<Req, Error = SdkError<E>>,
     // 'static is required because we need to `Box::pin` this future
     S::Future: 'static,
 {
