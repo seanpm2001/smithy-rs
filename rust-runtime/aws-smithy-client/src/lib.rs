@@ -24,6 +24,7 @@
 pub mod bounds;
 pub mod erase;
 pub mod retry;
+pub mod transparent;
 
 // https://github.com/rust-lang/rust/issues/72081
 #[allow(rustdoc::private_doc_tests)]
@@ -96,6 +97,7 @@ use aws_smithy_http::response::ParseHttpResponse;
 pub use aws_smithy_http::result::{SdkError, SdkSuccess};
 use aws_smithy_http::retry::ClassifyRetry;
 use aws_smithy_http_tower::dispatch::DispatchLayer;
+use aws_smithy_http_tower::map_request::{AsyncMapRequestLayer, MapRequestLayer};
 use aws_smithy_http_tower::parse_response::ParseResponseLayer;
 use aws_smithy_types::error::display::DisplayErrorContext;
 use aws_smithy_types::retry::ProvideErrorKind;
@@ -221,6 +223,10 @@ where
                     .new_request_policy(self.sleep_impl.clone()),
             )
             .layer(TimeoutLayer::new(timeout_params.operation_attempt_timeout))
+            .layer(AsyncMapRequestLayer::for_mapper(
+                transparent::TransparentStage,
+            ))
+            .layer(MapRequestLayer::for_mapper(transparent::TransparentStage))
             .layer(ParseResponseLayer::<O, Retry>::new())
             // These layers can be considered as occurring in order. That is, first invoke the
             // customer-provided middleware, then dispatch dispatch over the wire.
