@@ -19,6 +19,10 @@ import software.amazon.smithy.rust.codegen.core.smithy.protocols.Protocol
 sealed class OperationSection(name: String) : Section(name) {
     abstract val customizations: List<OperationCustomization>
 
+    /** Write custom code into the `constants` block of this operation */
+    data class OperationConstants(override val customizations: List<OperationCustomization>) :
+        OperationSection("OperationConstants")
+
     /** Write custom code into the `impl` block of this operation */
     data class OperationImplBlock(override val customizations: List<OperationCustomization>) :
         OperationSection("OperationImplBlock")

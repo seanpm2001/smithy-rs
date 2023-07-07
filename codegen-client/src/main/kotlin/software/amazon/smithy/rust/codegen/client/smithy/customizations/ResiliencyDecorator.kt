@@ -7,6 +7,7 @@ package software.amazon.smithy.rust.codegen.client.smithy.customizations
 
 import software.amazon.smithy.rust.codegen.client.smithy.ClientCodegenContext
 import software.amazon.smithy.rust.codegen.client.smithy.ClientRustModule
+import software.amazon.smithy.rust.codegen.client.smithy.customize.ClientCodegenDecorator
 import software.amazon.smithy.rust.codegen.client.smithy.generators.ServiceRuntimePluginCustomization
 import software.amazon.smithy.rust.codegen.client.smithy.generators.ServiceRuntimePluginSection
 import software.amazon.smithy.rust.codegen.client.smithy.generators.config.ConfigCustomization
@@ -17,10 +18,67 @@ import software.amazon.smithy.rust.codegen.core.rustlang.rustTemplate
 import software.amazon.smithy.rust.codegen.core.rustlang.writable
 import software.amazon.smithy.rust.codegen.core.smithy.RuntimeType
 import software.amazon.smithy.rust.codegen.core.smithy.RuntimeType.Companion.preludeScope
+import software.amazon.smithy.rust.codegen.core.smithy.RuntimeType.Companion.smithyAsync
+import software.amazon.smithy.rust.codegen.core.smithy.RuntimeType.Companion.smithyRuntime
+import software.amazon.smithy.rust.codegen.core.smithy.RuntimeType.Companion.smithyTypes
 import software.amazon.smithy.rust.codegen.core.smithy.RustCrate
 import software.amazon.smithy.rust.codegen.core.util.sdkId
 
-class ResiliencyConfigCustomization(private val codegenContext: ClientCodegenContext) : ConfigCustomization() {
+class ResiliencyDecorator : ClientCodegenDecorator {
+    override val name: String = "ResiliencyDecorator"
+    override val order: Byte = 0
+
+    override fun configCustomizations(
+        codegenContext: ClientCodegenContext,
+        baseCustomizations: List<ConfigCustomization>,
+    ): List<ConfigCustomization> {
+        return baseCustomizations + ResiliencyConfigCustomization(codegenContext)
+    }
+
+    override fun serviceRuntimePluginCustomizations(
+        codegenContext: ClientCodegenContext,
+        baseCustomizations: List<ServiceRuntimePluginCustomization>,
+    ): List<ServiceRuntimePluginCustomization> {
+        return baseCustomizations + ResiliencyServiceRuntimePluginCustomization(codegenContext)
+    }
+
+    override fun extras(codegenContext: ClientCodegenContext, rustCrate: RustCrate) {
+        val runtimeConfig = codegenContext.runtimeConfig
+        val runtimeMode = codegenContext.smithyRuntimeMode
+
+        rustCrate.withModule(ClientRustModule.config) {
+            rustTemplate(
+                """
+                pub use #{sleep}::{AsyncSleep, SharedAsyncSleep, Sleep};
+                ##[cfg(feature = "rt-tokio")]
+                pub use #{sleep}::default_async_sleep;
+                """,
+                "sleep" to smithyAsync(runtimeConfig).resolve("rt::sleep"),
+            )
+        }
+        rustCrate.withModule(ClientRustModule.Config.retry) {
+            rustTemplate(
+                "pub use #{types_retry}::{RetryConfig, RetryConfigBuilder, RetryMode, ReconnectMode};",
+                "types_retry" to smithyTypes(runtimeConfig).resolve("retry"),
+            )
+
+            if (runtimeMode.generateOrchestrator) {
+                rustTemplate(
+                    "pub use #{types_retry}::RetryPartition;",
+                    "types_retry" to smithyRuntime(runtimeConfig).resolve("client::retries"),
+                )
+            }
+        }
+        rustCrate.withModule(ClientRustModule.Config.timeout) {
+            rustTemplate(
+                "pub use #{timeout}::{TimeoutConfig, TimeoutConfigBuilder};",
+                "timeout" to smithyTypes(runtimeConfig).resolve("timeout"),
+            )
+        }
+    }
+}
+
+private class ResiliencyConfigCustomization(private val codegenContext: ClientCodegenContext) : ConfigCustomization() {
     private val runtimeConfig = codegenContext.runtimeConfig
     private val runtimeMode = codegenContext.smithyRuntimeMode
     private val retryConfig = RuntimeType.smithyTypes(runtimeConfig).resolve("retry")
@@ -443,40 +501,7 @@ class ResiliencyConfigCustomization(private val codegenContext: ClientCodegenCon
         }
 }
 
-class ResiliencyReExportCustomization(codegenContext: ClientCodegenContext) {
-    private val runtimeConfig = codegenContext.runtimeConfig
-    private val runtimeMode = codegenContext.smithyRuntimeMode
-
-    fun extras(rustCrate: RustCrate) {
-        rustCrate.withModule(ClientRustModule.config) {
-            rustTemplate(
-                "pub use #{sleep}::{AsyncSleep, SharedAsyncSleep, Sleep};",
-                "sleep" to RuntimeType.smithyAsync(runtimeConfig).resolve("rt::sleep"),
-            )
-        }
-        rustCrate.withModule(ClientRustModule.Config.retry) {
-            rustTemplate(
-                "pub use #{types_retry}::{RetryConfig, RetryConfigBuilder, RetryMode, ReconnectMode};",
-                "types_retry" to RuntimeType.smithyTypes(runtimeConfig).resolve("retry"),
-            )
-
-            if (runtimeMode.generateOrchestrator) {
-                rustTemplate(
-                    "pub use #{types_retry}::RetryPartition;",
-                    "types_retry" to RuntimeType.smithyRuntime(runtimeConfig).resolve("client::retries"),
-                )
-            }
-        }
-        rustCrate.withModule(ClientRustModule.Config.timeout) {
-            rustTemplate(
-                "pub use #{timeout}::{TimeoutConfig, TimeoutConfigBuilder};",
-                "timeout" to RuntimeType.smithyTypes(runtimeConfig).resolve("timeout"),
-            )
-        }
-    }
-}
-
-class ResiliencyServiceRuntimePluginCustomization(codegenContext: ClientCodegenContext) : ServiceRuntimePluginCustomization() {
+private class ResiliencyServiceRuntimePluginCustomization(codegenContext: ClientCodegenContext) : ServiceRuntimePluginCustomization() {
     private val runtimeConfig = codegenContext.runtimeConfig
     private val runtimeMode = codegenContext.smithyRuntimeMode
     private val smithyRuntime = RuntimeType.smithyRuntime(runtimeConfig)

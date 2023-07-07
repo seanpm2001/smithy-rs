@@ -5,7 +5,10 @@
 
 package software.amazon.smithy.rust.codegen.client.smithy.customizations
 
+import software.amazon.smithy.model.shapes.OperationShape
 import software.amazon.smithy.rust.codegen.client.smithy.ClientCodegenContext
+import software.amazon.smithy.rust.codegen.client.smithy.ClientRustModule
+import software.amazon.smithy.rust.codegen.client.smithy.customize.ClientCodegenDecorator
 import software.amazon.smithy.rust.codegen.client.smithy.generators.OperationCustomization
 import software.amazon.smithy.rust.codegen.client.smithy.generators.OperationSection
 import software.amazon.smithy.rust.codegen.client.smithy.generators.config.ConfigCustomization
@@ -15,14 +18,49 @@ import software.amazon.smithy.rust.codegen.core.rustlang.rust
 import software.amazon.smithy.rust.codegen.core.rustlang.rustBlockTemplate
 import software.amazon.smithy.rust.codegen.core.rustlang.rustTemplate
 import software.amazon.smithy.rust.codegen.core.rustlang.writable
-import software.amazon.smithy.rust.codegen.core.smithy.RuntimeType
 import software.amazon.smithy.rust.codegen.core.smithy.RuntimeType.Companion.preludeScope
+import software.amazon.smithy.rust.codegen.core.smithy.RuntimeType.Companion.smithyAsync
+import software.amazon.smithy.rust.codegen.core.smithy.RustCrate
 
-class TimeSourceCustomization(codegenContext: ClientCodegenContext) : ConfigCustomization() {
+class TimeSourceDecorator : ClientCodegenDecorator {
+    override val name: String = "TimeSourceDecorator"
+    override val order: Byte = 0
+
+    override fun configCustomizations(
+        codegenContext: ClientCodegenContext,
+        baseCustomizations: List<ConfigCustomization>,
+    ): List<ConfigCustomization> {
+        return baseCustomizations + TimeSourceConfigCustomization(codegenContext)
+    }
+
+    override fun operationCustomizations(
+        codegenContext: ClientCodegenContext,
+        operation: OperationShape,
+        baseCustomizations: List<OperationCustomization>,
+    ): List<OperationCustomization> {
+        return baseCustomizations + TimeSourceOperationCustomization()
+    }
+
+    override fun extras(codegenContext: ClientCodegenContext, rustCrate: RustCrate) {
+        val runtimeConfig = codegenContext.runtimeConfig
+        rustCrate.withModule(ClientRustModule.config) {
+            rustTemplate(
+                """
+                pub use #{time}::{SystemTimeSource, SharedTimeSource, TimeSource};
+                ##[cfg(feature = "test-util")]
+                pub use #{time}::StaticTimeSource;
+                """,
+                "time" to smithyAsync(runtimeConfig).resolve("time"),
+            )
+        }
+    }
+}
+
+private class TimeSourceConfigCustomization(codegenContext: ClientCodegenContext) : ConfigCustomization() {
     private val runtimeMode = codegenContext.smithyRuntimeMode
     private val codegenScope = arrayOf(
         *preludeScope,
-        "SharedTimeSource" to RuntimeType.smithyAsync(codegenContext.runtimeConfig).resolve("time::SharedTimeSource"),
+        "SharedTimeSource" to smithyAsync(codegenContext.runtimeConfig).resolve("time::SharedTimeSource"),
     )
 
     override fun section(section: ServiceConfig) =
@@ -130,7 +168,7 @@ class TimeSourceCustomization(codegenContext: ClientCodegenContext) : ConfigCust
         }
 }
 
-class TimeSourceOperationCustomization : OperationCustomization() {
+private class TimeSourceOperationCustomization : OperationCustomization() {
     override fun section(section: OperationSection): Writable {
         return when (section) {
             is OperationSection.MutateRequest -> writable {

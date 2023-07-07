@@ -62,6 +62,9 @@ open class OperationGenerator(
         val operationCustomizations = codegenDecorator.operationCustomizations(codegenContext, operationShape, emptyList())
         val inputShape = operationShape.inputShape(model)
 
+        // Render constants specific to this operation.
+        operationWriter.writeCustomizations(operationCustomizations, OperationSection.OperationConstants(operationCustomizations))
+
         // impl OperationInputShape { ... }
         inputWriter.implBlock(symbolProvider.toSymbol(inputShape)) {
             writeCustomizations(
