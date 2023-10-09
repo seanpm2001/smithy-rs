@@ -15,9 +15,9 @@ RUN yum -y updateinfo
 FROM bare_base_image as musl_toolchain
 RUN yum -y install --allowerasing tar gzip gcc make
 RUN curl https://musl.libc.org/releases/musl-1.2.3.tar.gz -o musl-1.2.3.tar.gz \
-  && ls \
-  && tar xvzf musl-1.2.3.tar.gz \
-  && (cd musl-1.2.3 && ./configure && make install)
+    && ls \
+    && tar xvzf musl-1.2.3.tar.gz \
+    && (cd musl-1.2.3 && ./configure && make install)
 
 #
 # Rust & Tools Installation Stage
@@ -48,11 +48,11 @@ RUN yum -y install --allowerasing \
     yum clean all
 RUN set -eux; \
     if [[ "$(uname -m)" == "aarch64" || "$(uname -m)" == "arm64" ]]; then \
-        curl https://static.rust-lang.org/rustup/archive/1.24.3/aarch64-unknown-linux-gnu/rustup-init --output rustup-init; \
-        echo "32a1532f7cef072a667bac53f1a5542c99666c4071af0c9549795bbdb2069ec1 rustup-init" | sha256sum --check; \
+    curl https://static.rust-lang.org/rustup/archive/1.24.3/aarch64-unknown-linux-gnu/rustup-init --output rustup-init; \
+    echo "32a1532f7cef072a667bac53f1a5542c99666c4071af0c9549795bbdb2069ec1 rustup-init" | sha256sum --check; \
     else \
-        curl https://static.rust-lang.org/rustup/archive/1.24.3/x86_64-unknown-linux-gnu/rustup-init --output rustup-init; \
-        echo "3dc5ef50861ee18657f9db2eeb7392f9c2a6c95c90ab41e45ab4ca71476b4338 rustup-init" | sha256sum --check; \
+    curl https://static.rust-lang.org/rustup/archive/1.24.3/x86_64-unknown-linux-gnu/rustup-init --output rustup-init; \
+    echo "3dc5ef50861ee18657f9db2eeb7392f9c2a6c95c90ab41e45ab4ca71476b4338 rustup-init" | sha256sum --check; \
     fi; \
     chmod +x rustup-init; \
     ./rustup-init -y --no-modify-path --profile minimal --default-toolchain ${rust_stable_version}; \
@@ -77,9 +77,9 @@ ARG smithy_rs_commit_hash=main
 ARG checkout_smithy_rs_tools=false
 RUN set -eux; \
     if [[ "${checkout_smithy_rs_tools}" == "true" ]]; then \
-        git clone https://github.com/awslabs/smithy-rs.git; \
-        cd smithy-rs; \
-        git checkout ${smithy_rs_commit_hash}; \
+    git clone https://github.com/awslabs/smithy-rs.git; \
+    cd smithy-rs; \
+    git checkout ${smithy_rs_commit_hash}; \
     fi; \
     cargo install --locked --path tools/ci-build/publisher; \
     cargo install --locked --path tools/ci-build/changelogger; \
@@ -119,32 +119,24 @@ ARG wasm_pack_version=0.11.0
 RUN cargo install wasm-pack --locked --version ${wasm_pack_version}
 
 FROM install_rust AS wasmtime
-ARG wasmtime_precompiled_url=https://github.com/bytecodealliance/wasmtime/releases/download/v7.0.0/wasmtime-v7.0.0-x86_64-linux.tar.xz
-ARG wasmtime_precompiled_sha256=b8a1c97f9107c885ea73a5c38677d0d340a7c26879d366e8a5f3dce84cffec99
-RUN set -eux; \
-    curl "${wasmtime_precompiled_url}" -L -o wasmtime.xz; \
-    echo "${wasmtime_precompiled_sha256} wasmtime.xz" | sha256sum --check; \
-    tar xf wasmtime.xz; \
-    mv wasmtime-v*/wasmtime /opt;
-
-FROM install_rust AS cargo_wasi
-ARG cargo_wasi_version=0.1.27
-RUN cargo install cargo-wasi --locked --version ${cargo_wasi_version}
+ARG cargo_wasmtime_version=13.0.0
+ARG rust_nightly_version
+RUN cargo +${rust_nightly_version} install wasmtime-cli --features="component-model" --locked --version ${cargo_wasmtime_version}
 
 FROM install_rust AS cargo_semver_checks
 ARG cargo_semver_checks_version=0.20.0
 ARG rust_nightly_version
-RUN cargo +${rust_nightly_version} -Z sparse-registry install cargo-semver-checks --locked --version ${cargo_semver_checks_version}
+RUN cargo +${rust_nightly_version} install cargo-semver-checks --locked --version ${cargo_semver_checks_version}
 
 FROM install_rust AS cargo_mdbook
 ARG cargo_mdbook_version=0.4.30
 ARG rust_nightly_version
-RUN cargo +${rust_nightly_version} -Z sparse-registry install mdbook --locked --version ${cargo_mdbook_version}
+RUN cargo +${rust_nightly_version} install mdbook --locked --version ${cargo_mdbook_version}
 
 FROM install_rust AS cargo_mdbook_mermaid
 ARG cargo_mdbook_mermaid_version=0.12.6
 ARG rust_nightly_version
-RUN cargo +${rust_nightly_version} -Z sparse-registry install mdbook-mermaid --locked --version ${cargo_mdbook_mermaid_version}
+RUN cargo +${rust_nightly_version} install mdbook-mermaid --locked --version ${cargo_mdbook_mermaid_version}
 
 #
 # Final image
@@ -182,15 +174,13 @@ COPY --chown=build:build --from=cargo_minimal_versions /opt/cargo/bin/cargo-mini
 COPY --chown=build:build --from=cargo_check_external_types /opt/cargo/bin/cargo-check-external-types /opt/cargo/bin/cargo-check-external-types
 COPY --chown=build:build --from=maturin /opt/cargo/bin/maturin /opt/cargo/bin/maturin
 COPY --chown=build:build --from=wasm_pack /opt/cargo/bin/wasm-pack /opt/cargo/bin/wasm-pack
-COPY --chown=build:build --from=wasmtime /opt/wasmtime /opt/cargo/bin/wasmtime
-COPY --chown=build:build --from=cargo_wasi /opt/cargo/bin/cargo-wasi /opt/cargo/bin/cargo-wasi
+COPY --chown=build:build --from=wasmtime /opt/cargo/bin/wasmtime /opt/cargo/bin/wasmtime
 COPY --chown=build:build --from=install_rust /opt/rustup /opt/rustup
 COPY --chown=build:build --from=cargo_semver_checks /opt/cargo/bin/cargo-semver-checks /opt/cargo/bin/cargo-semver-checks
 COPY --chown=build:build --from=cargo_mdbook /opt/cargo/bin/mdbook /opt/cargo/bin/mdbook
 COPY --chown=build:build --from=cargo_mdbook_mermaid /opt/cargo/bin/mdbook-mermaid /opt/cargo/bin/mdbook-mermaid
 COPY --chown=build:build --from=musl_toolchain /usr/local/musl/ /usr/local/musl/
 ENV PATH=$PATH:/usr/local/musl/bin/
-# TODO(Rust 1.70): The sparse registry config (`CARGO_REGISTRIES_CRATES_IO_PROTOCOL`) can be removed when upgrading to Rust 1.70
 ENV PATH=/opt/cargo/bin:$PATH \
     CARGO_HOME=/opt/cargo \
     RUSTUP_HOME=/opt/rustup \
@@ -198,7 +188,6 @@ ENV PATH=/opt/cargo/bin:$PATH \
     GRADLE_USER_HOME=/home/build/.gradle \
     RUST_STABLE_VERSION=${rust_stable_version} \
     RUST_NIGHTLY_VERSION=${rust_nightly_version} \
-    CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse \
     CARGO_INCREMENTAL=0 \
     RUSTDOCFLAGS="-D warnings" \
     RUSTFLAGS="-D warnings" \

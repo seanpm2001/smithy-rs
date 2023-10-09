@@ -12,21 +12,18 @@ use std::future::Future;
 
 pub(crate) fn get_default_config() -> impl Future<Output = aws_config::SdkConfig> {
     aws_config::from_env()
-        .region(Region::from_static("us-west-2"))
-        .credentials_provider(Credentials::from_keys(
-            "access_key",
-            "secret_key",
-            Some("session_token".to_string()),
-        ))
+        .region("us-east-2")
         .timeout_config(TimeoutConfig::disabled())
         .retry_config(RetryConfig::disabled())
         .http_client(WasmHttpConnector::new())
+        .no_credentials()
         .load()
+        .await
 }
 
 #[tokio::test]
 pub async fn test_default_config() {
     let shared_config = get_default_config().await;
     let client = aws_sdk_s3::Client::new(&shared_config);
-    assert_eq!(client.config().region().unwrap().to_string(), "us-west-2")
+    assert_eq!(client.config().region().unwrap().to_string(), "us-east-2")
 }
