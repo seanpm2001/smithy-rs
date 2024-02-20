@@ -1,0 +1,110 @@
+{
+  "events": [
+    {
+      "connection_id": 0,
+      "action": {
+        "Request": {
+          "request": {
+            "uri": "https://s3express-control.us-west-2.amazonaws.com/s3express-test-bucket--usw2-az1--x-s3/",
+            "headers": {
+              "amz-sdk-request": [
+                "attempt=1; max=3"
+              ],
+              "x-amz-content-sha256": [
+                "6a27635134ad7c56e1baee1bb240fee83758325939efe882184f401351dad97e"
+              ],
+              "x-amz-date": [
+                "20090213T233130Z"
+              ],
+              "amz-sdk-invocation-id": [
+                "922f6582-5d8b-4296-8605-a0350628f40b"
+              ],
+              "content-length": [
+                "268"
+              ],
+              "x-amz-user-agent": [
+                "aws-sdk-rust/0.123.test api/test-service/0.123 os/windows/XPSP3 lang/rust/1.50.0"
+              ],
+              "authorization": [
+                "AWS4-HMAC-SHA256 Credential=ANOTREAL/20090213/us-west-2/s3express/aws4_request, SignedHeaders=content-length;content-type;host;x-amz-content-sha256;x-amz-date;x-amz-user-agent, Signature=444e8f236b56417e3e312b290af9fd5a967578d8ac2af73e7f89b7a6ab91b521"
+              ],
+              "content-type": [
+                "application/xml"
+              ],
+              "user-agent": [
+                "aws-sdk-rust/0.123.test os/windows/XPSP3 lang/rust/1.50.0"
+              ]
+            },
+            "method": "PUT"
+          }
+        }
+      }
+    },
+    {
+      "connection_id": 0,
+      "action": {
+        "Data": {
+          "data": {
+            "Utf8": "<CreateBucketConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Location><Type>AvailabilityZone</Type><Name>usw2-az1</Name></Location><Bucket><DataRedundancy>SingleAvailabilityZone</DataRedundancy><Type>Directory</Type></Bucket></CreateBucketConfiguration>"
+          },
+          "direction": "Request"
+        }
+      }
+    },
+    {
+      "connection_id": 0,
+      "action": {
+        "Eof": {
+          "ok": true,
+          "direction": "Request"
+        }
+      }
+    },
+    {
+      "connection_id": 0,
+      "action": {
+        "Response": {
+          "response": {
+            "Ok": {
+              "status": 200,
+              "headers": {
+                "x-amzn-requestid": [
+                  "553b5864-12e5-481f-987f-7e2371b21cab"
+                ],
+                "x-amz-request-id": [
+                  "0033EADA6B01018DC35E0F0A0500C8B3D3375B34"
+                ],
+                "content-length": [
+                  "0"
+                ],
+                "location": [
+                  "https://s3express-test-bucket--usw2-az1--x-s3.s3express-usw2-az1.us-west-2.amazonaws.com/"
+                ],
+                "x-amz-id-2": [
+                  "HF4LtXv"
+                ],
+                "date": [
+                  "Mon, 19 Feb 2024 21:55:39 GMT"
+                ],
+                "server": [
+                  "AmazonS3"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "connection_id": 0,
+      "action": {
+        "Eof": {
+          "ok": true,
+          "direction": "Response"
+        }
+      }
+    }
+  ],
+  "docs": "traffic recording of creating an S3 Express One Zone bucket",
+  "version": "V0"
+}

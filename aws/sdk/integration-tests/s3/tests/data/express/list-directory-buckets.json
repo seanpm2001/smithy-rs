@@ -1,0 +1,104 @@
+{
+  "events": [
+    {
+      "connection_id": 0,
+      "action": {
+        "Request": {
+          "request": {
+            "uri": "https://s3express-control.us-west-2.amazonaws.com/?x-id=ListDirectoryBuckets",
+            "headers": {
+              "user-agent": [
+                "aws-sdk-rust/0.123.test os/windows/XPSP3 lang/rust/1.50.0"
+              ],
+              "amz-sdk-request": [
+                "attempt=1; max=3"
+              ],
+              "x-amz-content-sha256": [
+                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              ],
+              "authorization": [
+                "AWS4-HMAC-SHA256 Credential=ANOTREAL/20090213/us-west-2/s3express/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-user-agent, Signature=f1da6de72684af9835bdcc16a3b6669b8a56e5b4f652b2b6e12a388ff68c432a"
+              ],
+              "amz-sdk-invocation-id": [
+                "1f4060a4-ac6d-49e5-bc8a-dd3e8b6f2a28"
+              ],
+              "x-amz-user-agent": [
+                "aws-sdk-rust/0.123.test api/test-service/0.123 os/windows/XPSP3 lang/rust/1.50.0"
+              ],
+              "x-amz-date": [
+                "20090213T233130Z"
+              ]
+            },
+            "method": "GET"
+          }
+        }
+      }
+    },
+    {
+      "connection_id": 0,
+      "action": {
+        "Eof": {
+          "ok": true,
+          "direction": "Request"
+        }
+      }
+    },
+    {
+      "connection_id": 0,
+      "action": {
+        "Response": {
+          "response": {
+            "Ok": {
+              "status": 200,
+              "headers": {
+                "x-amzn-requestid": [
+                  "2da2f672-3498-4bca-9138-e34450b89035"
+                ],
+                "server": [
+                  "AmazonS3"
+                ],
+                "x-amz-request-id": [
+                  "0033EADA6B01018DC383580F0500C5B200DED841"
+                ],
+                "x-amz-id-2": [
+                  "1tJULUvfZ"
+                ],
+                "content-type": [
+                  "application/xml"
+                ],
+                "content-length": [
+                  "278"
+                ],
+                "date": [
+                  "Mon, 19 Feb 2024 22:36:20 GMT"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "connection_id": 0,
+      "action": {
+        "Data": {
+          "data": {
+            "Utf8": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<ListAllMyDirectoryBucketsResult>\n  <Buckets>\n    <Bucket>\n      <Name>s3express-test-bucket--usw2-az1--x-s3</Name>\n      <CreationDate>2024-01-29T18:31:15.159Z</CreationDate>\n    </Bucket>\n  </Buckets>\n</ListAllMyDirectoryBucketsResult>\n\n"
+          },
+          "direction": "Response"
+        }
+      }
+    },
+    {
+      "connection_id": 0,
+      "action": {
+        "Eof": {
+          "ok": true,
+          "direction": "Response"
+        }
+      }
+    }
+  ],
+  "docs": "traffic recording of listing S3 Express One Zone buckets",
+  "version": "V0"
+}

@@ -5,14 +5,86 @@
 
 use std::time::{Duration, SystemTime};
 
-use aws_config::Region;
+use aws_sdk_s3::config::{Builder, Credentials};
 use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::primitives::SdkBody;
+use aws_sdk_s3::types::{
+    BucketInfo, BucketType, CreateBucketConfiguration, DataRedundancy, LocationInfo, LocationType,
+};
 use aws_sdk_s3::{Client, Config};
 use aws_smithy_runtime::client::http::test_util::dvr::ReplayingClient;
-use aws_smithy_runtime::client::http::test_util::{ReplayEvent, StaticReplayClient};
+use aws_smithy_runtime::client::http::test_util::{
+    capture_request, ReplayEvent, StaticReplayClient,
+};
 use aws_smithy_runtime::test_util::capture_test_logs::capture_test_logs;
 use http::Uri;
+
+async fn test_client<F>(update_builder: F) -> Client
+where
+    F: Fn(Builder) -> Builder,
+{
+    let sdk_config = aws_config::from_env()
+        .no_credentials()
+        .region("us-west-2")
+        .load()
+        .await;
+    let config = Config::from(&sdk_config).to_builder().with_test_defaults();
+    aws_sdk_s3::Client::from_conf(update_builder(config).build())
+}
+
+#[tokio::test]
+async fn create_bucket() {
+    let _logs = capture_test_logs();
+
+    let http_client = ReplayingClient::from_file("tests/data/express/create-bucket.json").unwrap();
+    let client = test_client(|b| b.http_client(http_client.clone())).await;
+
+    let bucket_cfg = CreateBucketConfiguration::builder()
+        .location(
+            LocationInfo::builder()
+                .name("usw2-az1")
+                .r#type(LocationType::AvailabilityZone)
+                .build(),
+        )
+        .bucket(
+            BucketInfo::builder()
+                .data_redundancy(DataRedundancy::SingleAvailabilityZone)
+                .r#type(BucketType::Directory)
+                .build(),
+        )
+        .build();
+
+    let result = client
+        .create_bucket()
+        .create_bucket_configuration(bucket_cfg)
+        .bucket("s3express-test-bucket--usw2-az1--x-s3")
+        .send()
+        .await;
+    let result = dbg!(result).expect("success");
+    assert_eq!(Some("https://s3express-test-bucket--usw2-az1--x-s3.s3express-usw2-az1.us-west-2.amazonaws.com/"), result.location());
+
+    http_client
+        .validate_body_and_headers(Some(&[]), "application/xml")
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn list_directory_buckets() {
+    let _logs = capture_test_logs();
+
+    let http_client =
+        ReplayingClient::from_file("tests/data/express/list-directory-buckets.json").unwrap();
+    let client = test_client(|b| b.http_client(http_client.clone())).await;
+
+    let result = client.list_directory_buckets().send().await;
+    dbg!(result).expect("success");
+
+    http_client
+        .validate_body_and_headers(Some(&[]), "application/xml")
+        .await
+        .unwrap();
+}
 
 #[tokio::test]
 async fn list_objects_v2() {
@@ -20,17 +92,7 @@ async fn list_objects_v2() {
 
     let http_client =
         ReplayingClient::from_file("tests/data/express/list-objects-v2.json").unwrap();
-    let config = aws_config::from_env()
-        .http_client(http_client.clone())
-        .no_credentials()
-        .region("us-west-2")
-        .load()
-        .await;
-    let config = Config::from(&config)
-        .to_builder()
-        .with_test_defaults()
-        .build();
-    let client = aws_sdk_s3::Client::from_conf(config);
+    let client = test_client(|b| b.http_client(http_client.clone())).await;
 
     let result = client
         .list_objects_v2()
@@ -46,24 +108,11 @@ async fn list_objects_v2() {
 }
 
 #[tokio::test]
-async fn list_objects_v2_in_both_express_and_regular_buckets() {
+async fn mixed_auths() {
     let _logs = capture_test_logs();
 
-    let http_client = ReplayingClient::from_file(
-        "tests/data/express/list_objects_v2_in_both_express_and_regular_buckets.json",
-    )
-    .unwrap();
-    let config = aws_config::from_env()
-        .http_client(http_client.clone())
-        .no_credentials()
-        .region("us-west-2")
-        .load()
-        .await;
-    let config = Config::from(&config)
-        .to_builder()
-        .with_test_defaults()
-        .build();
-    let client = aws_sdk_s3::Client::from_conf(config);
+    let http_client = ReplayingClient::from_file("tests/data/express/mixed-auths.json").unwrap();
+    let client = test_client(|b| b.http_client(http_client.clone())).await;
 
     // A call to an S3 Express bucket where we should see two request/response pairs,
     // one for the `create_session` API and the other for `list_objects_v2` in S3 Express bucket.
@@ -140,12 +189,7 @@ async fn presigning() {
         create_session_response(),
     )]);
 
-    let config = aws_sdk_s3::Config::builder()
-        .http_client(http_client)
-        .region(Region::new("us-west-2"))
-        .with_test_defaults()
-        .build();
-    let client = Client::from_conf(config);
+    let client = test_client(|b| b.http_client(http_client.clone())).await;
 
     let presigning_config = PresigningConfig::builder()
         .start_time(SystemTime::UNIX_EPOCH + Duration::from_secs(1234567891))
@@ -189,4 +233,94 @@ async fn presigning() {
         &query_params
     );
     assert_eq!(presigned.headers().count(), 0);
+}
+
+#[tokio::test]
+async fn presigning_with_express_session_auth_disabled() {
+    let http_client = StaticReplayClient::new(vec![ReplayEvent::new(
+        create_session_request(),
+        create_session_response(),
+    )]);
+
+    let client = test_client(|b| {
+        b.http_client(http_client.clone())
+            .credentials_provider(Credentials::for_tests_with_session_token())
+            .disable_s3_express_session_auth(true)
+    })
+    .await;
+
+    let presigning_config = PresigningConfig::builder()
+        .start_time(SystemTime::UNIX_EPOCH + Duration::from_secs(1234567891))
+        .expires_in(Duration::from_secs(30))
+        .build()
+        .unwrap();
+
+    let presigned = client
+        .get_object()
+        .bucket("s3express-test-bucket--usw2-az1--x-s3")
+        .key("ferris.png")
+        .presigned(presigning_config)
+        .await
+        .unwrap();
+
+    let uri = presigned.uri().parse::<Uri>().unwrap();
+
+    let pq = uri.path_and_query().unwrap();
+    let path = pq.path();
+    let query = pq.query().unwrap();
+    let mut query_params: Vec<&str> = query.split('&').collect();
+    query_params.sort();
+
+    pretty_assertions::assert_eq!(
+        "s3express-test-bucket--usw2-az1--x-s3.s3express-usw2-az1.us-west-2.amazonaws.com",
+        uri.authority().unwrap()
+    );
+    assert_eq!("GET", presigned.method());
+    assert_eq!("/ferris.png", path);
+    // X-Amz-S3session-Token should not appear and X-Amz-Security-Token should be present instead
+    pretty_assertions::assert_eq!(
+        &[
+            "X-Amz-Algorithm=AWS4-HMAC-SHA256",
+            "X-Amz-Credential=ANOTREAL%2F20090213%2Fus-west-2%2Fs3express%2Faws4_request",
+            "X-Amz-Date=20090213T233131Z",
+            "X-Amz-Expires=30",
+            "X-Amz-Security-Token=notarealsessiontoken",
+            "X-Amz-Signature=8b088ab60bb8d3a3b9e7bcc69b32b3f1021ca2e3d1cbc7bdd413a030d9affee3",
+            "X-Amz-SignedHeaders=host",
+            "x-id=GetObject"
+        ][..],
+        &query_params
+    );
+    assert_eq!(presigned.headers().count(), 0);
+}
+
+#[tokio::test]
+async fn support_customer_overriding_express_credentials_provider() {
+    let (http_client, rx) = capture_request(None);
+    let expected_session_token = "testsessiontoken";
+    let client = test_client(|b| {
+        b.http_client(http_client.clone())
+            // Pass a credential with a session token so that
+            // `x-amz-s3session-token` should appear in the request header.
+            .express_credentials_provider(Credentials::new(
+                "testaccess",
+                "testsecret",
+                Some(expected_session_token.to_owned()),
+                None,
+                "test",
+            ))
+    })
+    .await;
+    let _ = client
+        .list_objects_v2()
+        .bucket("s3express-test-bucket--usw2-az1--x-s3")
+        .send()
+        .await;
+
+    let req = rx.expect_request();
+    let actual_session_token = req
+        .headers()
+        .get("x-amz-s3session-token")
+        .expect("x-amz-s3session-token should be present");
+    assert_eq!(expected_session_token, actual_session_token);
 }
