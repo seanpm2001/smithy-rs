@@ -6,12 +6,13 @@ jobs:
   trigger_another_workflow:
     runs-on: ubuntu-latest
     steps:
-    - name: Trigger Another Repository's Workflow
-      uses: peter-evans/repository-dispatch@v1
+    - uses: actions/github-script@v6
       with:
-        token: ${{ secrets.RELEASE_AUTOMATION_BOT_PAT }}
-        repository: awslabs/aws-sdk-rust
-        workflow: .github/workflows/test-job.yml@ysaito/dummy-workflow
-
-        event-type: start-workflow
-        client-payload: '{"ref": "${{ github.event.pull_request.head.ref }}"}'
+        github-token: ${{ secrets.RELEASE_AUTOMATION_BOT_PAT }}
+        script: |
+          github.rest.actions.createWorkflowDispatch({
+              owner: 'awslabs',
+              repo: 'aws-sdk-rust',
+              workflow_id: 'closed-issue-message.yaml',
+              ref: 'ysaito/dummy-workflow'
+          })
