@@ -14,5 +14,9 @@ jobs:
               owner: 'awslabs',
               repo: 'aws-sdk-rust',
               workflow_id: 'closed-issue-message.yaml',
-              ref: 'ysaito/dummy-workflow'
+              ref: 'ysaito/dummy-workflow',
+              inputs: {
+                  commit_sha: context.sha,
+                  repository_name: `${{ github.repository }}`
+              }
           })
