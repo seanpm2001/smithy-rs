@@ -19,6 +19,36 @@ RUN curl https://musl.libc.org/releases/musl-1.2.3.tar.gz -o musl-1.2.3.tar.gz \
     && tar xvzf musl-1.2.3.tar.gz \
     && (cd musl-1.2.3 && ./configure && make install)
 
+FROM bare_base_image as install_node
+ARG node_version=v16.14.0
+ENV DEST_PATH=/opt/nodejs \
+    PATH=/opt/nodejs/bin:${PATH}
+RUN yum -y updateinfo && \
+    yum -y install --allowerasing \
+        ca-certificates \
+        curl \
+        tar \
+        xz && \
+    yum clean all
+WORKDIR /root
+RUN set -eux; \
+    ARCHITECTURE=""; \
+    if [[ "$(uname -m)" == "aarch64" || "$(uname -m)" == "arm64" ]]; then \
+        curl "https://nodejs.org/dist/${node_version}/node-${node_version}-linux-arm64.tar.xz" --output node.tar.xz; \
+        echo "5a6e818c302527a4b1cdf61d3188408c8a3e4a1bbca1e3f836c93ea8469826ce  node.tar.xz" | sha256sum --check; \
+        ARCHITECTURE="arm64"; \
+    else \
+        curl "https://nodejs.org/dist/${node_version}/node-${node_version}-linux-x64.tar.xz" --output node.tar.xz; \
+        echo "0570b9354959f651b814e56a4ce98d4a067bf2385b9a0e6be075739bc65b0fae  node.tar.xz" | sha256sum --check; \
+        ARCHITECTURE="x64"; \
+    fi; \
+    mkdir -p "${DEST_PATH}"; \
+    tar -xJvf node.tar.xz -C "${DEST_PATH}"; \
+    mv "${DEST_PATH}/node-${node_version}-linux-${ARCHITECTURE}/"* "${DEST_PATH}"; \
+    rmdir "${DEST_PATH}"/node-${node_version}-linux-${ARCHITECTURE}; \
+    rm node.tar.xz; \
+    node --version
+
 #
 # Rust & Tools Installation Stage
 #
@@ -187,7 +217,9 @@ COPY --chown=build:build --from=cargo_semver_checks /opt/cargo/bin/cargo-semver-
 COPY --chown=build:build --from=cargo_mdbook /opt/cargo/bin/mdbook /opt/cargo/bin/mdbook
 COPY --chown=build:build --from=cargo_mdbook_mermaid /opt/cargo/bin/mdbook-mermaid /opt/cargo/bin/mdbook-mermaid
 COPY --chown=build:build --from=musl_toolchain /usr/local/musl/ /usr/local/musl/
+COPY --chown=build:build --from=install_node /opt/nodejs/ /opt/nodejs/
 ENV PATH=$PATH:/usr/local/musl/bin/
+ENV PATH=/opt/nodejs/bin:$PATH
 ENV PATH=/opt/cargo/bin:$PATH \
     CARGO_HOME=/opt/cargo \
     RUSTUP_HOME=/opt/rustup \

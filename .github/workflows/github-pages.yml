@@ -1,22 +1,59 @@
 name: Update GitHub Pages
 on:
   workflow_dispatch:
+    inputs:
+      repository_name:
+        description: |
+          Repository name: The name of a repository of the format {owner}/{repo} you want to clone.
+        required: false
+        type: string
+      commit_sha:
+        description: |
+          Commit SHA: The SHA of the git commit to which the current branch is pointed to.
+        required: true
+        type: string
+
+env:
+  rust_version: 1.74.1
+  rust_nightly_version: nightly-2024-02-07
 
 jobs:
-  trigger_another_workflow:
-    runs-on: ubuntu-latest
+  manual_canary_run:
+    if: ${{ inputs.repository_name != '' }}
+    runs-on: smithy_ubuntu-latest_8-core
+    permissions:
+      id-token: write
+      contents: read
     steps:
-    - uses: actions/github-script@v6
+    - uses: actions/checkout@v4
       with:
-        github-token: ${{ secrets.RELEASE_AUTOMATION_BOT_PAT }}
-        script: |
-          github.rest.actions.createWorkflowDispatch({
-              owner: 'awslabs',
-              repo: 'aws-sdk-rust',
-              workflow_id: 'closed-issue-message.yaml',
-              ref: 'ysaito/dummy-workflow',
-              inputs: {
-                  commit_sha: context.sha,
-                  repository_name: `${{ github.repository }}`
-              }
-          })
+        repository: ${{ inputs.repository_name }}
+        ref: ${{ inputs.commit_sha }}
+    - uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ env.rust_version }}
+        targets: x86_64-unknown-linux-musl
+    - name: Install dependencies
+      env:
+        CARGO_COMPONENT_VERSION: 0.7.1
+      run: |
+        sudo apt-get install -y musl-dev musl-tools
+        rustup toolchain install ${{ env.rust_nightly_version }}
+        cargo +${{ env.rust_nightly_version }} install cargo-component --locked --version ${CARGO_COMPONENT_VERSION}
+    - uses: aws-actions/configure-aws-credentials@v4
+      name: Acquire credentials for running the canary
+      with:
+        role-to-assume: ${{ secrets.SMITHY_RS_CANARY_GITHUB_ACTIONS_ROLE_ARN }}
+        role-session-name: GitHubActions
+        aws-region: us-west-2
+    - name: Run canary
+      env:
+        RUST_VERSION: ${{ env.rust_version }}
+        LAMBDA_CODE_S3_BUCKET_NAME: ${{ secrets.CANARY_LAMBDA_CODE_S3_BUCKET }}
+        LAMBDA_TEST_S3_BUCKET_NAME: ${{ secrets.CANARY_LAMBDA_TEST_S3_BUCKET }}
+        LAMBDA_EXECUTION_ROLE_ARN: ${{ secrets.CANARY_LAMBDA_EXECUTION_ROLE_ARN }}
+        LAMBDA_TEST_S3_MRAP_BUCKET_ARN: ${{ secrets.CANARY_LAMBDA_TEST_S3_MRAP_BUCKET_ARN }}
+        LAMBDA_TEST_S3_EXPRESS_BUCKET_NAME: ${{ secrets.CANARY_LAMBDA_TEST_S3_EXPRESS_BUCKET_NAME }}
+      run: |
+        ./gradlew -Paws.services=+ec2,+s3,+sso,+ssooidc,+sts,+transcribestreaming :aws:sdk:assemble
+        ./tools/ci-scripts/run-canary.sh
