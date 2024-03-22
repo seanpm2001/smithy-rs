@@ -46,14 +46,16 @@ jobs:
       with:
         path: smithy-rs
         ref: ${{ inputs.commit_sha }}
-    - name: Acquire credentials for uploading to S3
+    - name: Configure Credentials
+      id: creds
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: ${{ secrets.SMITHY_RS_CANARY_GITHUB_ACTIONS_ROLE_ARN }}
         aws-region: us-west-2
+        role-to-assume: ${{ secrets.SMITHY_RS_CANARY_GITHUB_ACTIONS_ROLE_ARN }}
+        output-credentials: true
     - name: Run canary
       uses: ./smithy-rs/.github/actions/docker-build
       with:
         action: run-canary
-        # Should be replaced with a JSON instead of a list of env variables
-        action-arguments: ${{ secrets.SMITHY_RS_CANARY_GITHUB_ACTIONS_ROLE_ARN }} ${{ secrets.CANARY_LAMBDA_CODE_S3_BUCKET }} ${{ secrets.CANARY_LAMBDA_TEST_S3_BUCKET }} ${{ secrets.CANARY_LAMBDA_EXECUTION_ROLE_ARN }} ${{ secrets.CANARY_LAMBDA_TEST_S3_MRAP_BUCKET_ARN }} ${{ secrets.CANARY_LAMBDA_TEST_S3_EXPRESS_BUCKET_NAME }}
+        # TODO(Canary): Replace a list of env variables with a JSON stored in S3
+        action-arguments: ${{ secrets.CANARY_LAMBDA_CODE_S3_BUCKET }} ${{ secrets.CANARY_LAMBDA_TEST_S3_BUCKET }} ${{ secrets.CANARY_LAMBDA_EXECUTION_ROLE_ARN }} ${{ secrets.CANARY_LAMBDA_TEST_S3_MRAP_BUCKET_ARN }} ${{ secrets.CANARY_LAMBDA_TEST_S3_EXPRESS_BUCKET_NAME }} ${{ steps.creds.outputs.aws-access-key-id }} ${{ steps.creds.outputs.aws-secret-access-key }} ${{ steps.creds.outputs.aws-session-token }}

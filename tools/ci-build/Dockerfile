@@ -30,6 +30,7 @@ ENV RUSTUP_HOME=/opt/rustup \
     PATH=/opt/cargo/bin/:${PATH} \
     CARGO_INCREMENTAL=0
 WORKDIR /root
+
 RUN yum -y install --allowerasing \
         autoconf \
         automake \
@@ -149,6 +150,8 @@ RUN cargo install mdbook-mermaid --locked --version ${cargo_mdbook_mermaid_versi
 FROM bare_base_image AS final_image
 ARG rust_stable_version
 ARG rust_nightly_version
+RUN set -eux; yum -y updateinfo; yum -y install jq unzip; yum clean all; rm -rf /var/cache/yum
+RUN set -eux; cd /tmp; curl 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o awscliv2.zip && unzip awscliv2.zip && ./aws/install
 RUN set -eux; \
     yum -y install --allowerasing \
         bc \
