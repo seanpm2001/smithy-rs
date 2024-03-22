@@ -15,33 +15,28 @@ env:
 name: Claim unpublished crate names on crates.io
 run-name: ${{ github.workflow }}
 on:
-  # It runs daily, but it can also be triggered on demand.
   workflow_dispatch:
-  schedule:
-  - cron: 0 11 * * *     # run at 11:00 UTC (morning) every day
+    inputs:
+      repository_name:
+        description: |
+          Repository name: The name of a repository of the format {owner}/{repo} you want to clone.
+        required: false
+        type: string
+      commit_sha:
+        description: |
+          Commit SHA: The SHA of the git commit to which the current branch is pointed to.
+        required: true
+        type: string
 
 jobs:
-  main-branch-check:
-    name: Check that workflow is running in main
-    runs-on: ubuntu-latest
-    steps:
-    - name: Main branch check
-      if: ${{ github.ref_name != 'main' }}
-      uses: actions/github-script@v7
-      with:
-        script: |
-          core.setFailed("This workflow can only be ran on main (current branch: ${{ github.ref_name }})")
-
-  # This job will be a no-op if an image was already built on main by another workflow.
   acquire-base-image:
     name: Acquire Base Image
-    needs:
-    - main-branch-check
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
       with:
         path: smithy-rs
+        ref: ${{ inputs.commit_sha }}
         fetch-depth: 0
     - name: Acquire base image
       id: acquire
@@ -53,25 +48,18 @@ jobs:
         path: smithy-rs-base-image
         retention-days: 1
 
-  claim:
-    name: Claim crate names
+  canary:
+    name: Canary
     needs:
-    - main-branch-check
     - acquire-base-image
-    runs-on: ubuntu-latest
-    steps:
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ env.rust_version }}
-    - name: Checkout smithy-rs
-      uses: actions/checkout@v4
-    - name: Publish to crates.io
-      shell: bash
-      env:
-        CARGO_REGISTRY_TOKEN: ${{ secrets.RELEASE_AUTOMATION_BOT_CRATESIO_TOKEN }}
-      run: |
-        cargo install --path tools/ci-build/publisher
-        # Verify the publisher tool installed successfully
-        publisher --version
-        publisher claim-crate-names -y
+    uses: ./.github/workflows/canary.yml
+    with:
+      pull_request_number: 0
+      commit_sha: ${{ inputs.commit_sha }}
+    secrets:
+      SMITHY_RS_CANARY_GITHUB_ACTIONS_ROLE_ARN: ${{ secrets.SMITHY_RS_CANARY_GITHUB_ACTIONS_ROLE_ARN }}
+      CANARY_LAMBDA_CODE_S3_BUCKET: ${{ secrets.CANARY_LAMBDA_CODE_S3_BUCKET }}
+      CANARY_LAMBDA_TEST_S3_BUCKET: ${{ secrets.CANARY_LAMBDA_TEST_S3_BUCKET }}
+      CANARY_LAMBDA_EXECUTION_ROLE_ARN: ${{ secrets.CANARY_LAMBDA_EXECUTION_ROLE_ARN }}
+      CANARY_LAMBDA_TEST_S3_MRAP_BUCKET_ARN: ${{ secrets.CANARY_LAMBDA_TEST_S3_MRAP_BUCKET_ARN }}
+      CANARY_LAMBDA_TEST_S3_EXPRESS_BUCKET_NAME: ${{ secrets.CANARY_LAMBDA_TEST_S3_EXPRESS_BUCKET_NAME }}
