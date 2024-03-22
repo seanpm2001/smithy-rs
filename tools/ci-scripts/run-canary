@@ -1,0 +1,40 @@
+#!/bin/bash
+#
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+
+set -eux
+
+GITHUB_ACTIONS_ROLE_ARN=$1
+LAMBDA_CODE_S3_BUCKET_NAME=$2
+LAMBDA_TEST_S3_BUCKET_NAME=$3
+LAMBDA_EXECUTION_ROLE_ARN=$4
+LAMBDA_TEST_S3_MRAP_BUCKET_ARN=$5
+LAMBDA_TEST_S3_EXPRESS_BUCKET_NAME=$6
+
+SMITHY_RS="$(pwd)/smithy-rs"
+SDK_PATH="${SMITHY_RS}/aws/sdk/build/aws-sdk/sdk"
+
+cd ${SMITHY_RS}
+
+# Generate only SDKs used by canary (see BASE_MANIFEST in build_bundle.rs of canary-runner)
+./gradlew -Paws.services=+ec2,+s3,+sso,+ssooidc,+sts,+transcribestreaming :aws:sdk:assemble
+
+SDK_PATH="$(pwd)/aws/sdk/build/aws-sdk/sdk"
+
+assumed_role_json=$(aws sts assume-role --role-arn ${GITHUB_ACTIONS_ROLE_ARN} --output json)
+export AWS_ACCESS_KEY_ID=$(echo "${assumed_role_json}" | jq -r .Credentials.AccessKeyId)
+export AWS_SECRET_ACCESS_KEY=$(echo "${assumed_role_json}" | jq -r .Credentials.SecretAccessKey)
+export AWS_SESSION_TOKEN=$(echo "${assumed_role_json}" | jq -r .Credentials.SessionToken)
+
+cd tools/ci-cdk/canary-runner
+cargo run -- \
+  run --rust-version ${RUST_STABLE_VERSION} \
+      --sdk-path ${SDK_PATH} \
+      --lambda-code-s3-bucket-name ${LAMBDA_CODE_S3_BUCKET_NAME} \
+      --lambda-test-s3-bucket-name ${LAMBDA_TEST_S3_BUCKET_NAME} \
+      --lambda-execution-role-arn ${LAMBDA_EXECUTION_ROLE_ARN} \
+      --lambda-test-s3-mrap-bucket-arn ${LAMBDA_TEST_S3_MRAP_BUCKET_ARN} \
+      --lambda-test-s3-express-bucket-name ${LAMBDA_TEST_S3_EXPRESS_BUCKET_NAME} \
+      --musl

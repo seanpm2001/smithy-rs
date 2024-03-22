@@ -1,49 +1,99 @@
-on:
-  workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-    - design/**
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# This workflow runs CI and the PR Bot on pull requests that are not from forked repositories.
 
 name: Update GitHub Pages
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        required: true
+        type: string
 
-env:
-  rust_version: 1.74.1
-
-# Allow only one doc pages build to run at a time for the entire smithy-rs repo
+# Allow one instance of this workflow per pull request, and cancel older runs when new changes are pushed
 concurrency:
-  group: github-pages-yml
+  group: github-pages-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  ecr_repository: public.ecr.aws/w0m4q9l7/github-awslabs-smithy-rs-ci
+
 jobs:
-  build-and-deploy-docs:
+  # This job will, if possible, save a docker login password to the job outputs. The token will
+  # be encrypted with the passphrase stored as a GitHub secret. The login password expires after 12h.
+  # The login password is encrypted with the repo secret DOCKER_LOGIN_TOKEN_PASSPHRASE
+  save-docker-login-token:
+    name: Save a docker login token
+    outputs:
+      docker-login-password: ${{ steps.set-token.outputs.docker-login-password }}
+    permissions:
+      id-token: write
+      contents: read
+    continue-on-error: true
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+    - name: Attempt to load a docker login password
+      uses: aws-actions/configure-aws-credentials@v4
       with:
-        persist-credentials: false
-    - uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ env.rust_version }}
-    - name: Generate docs
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        role-to-assume: ${{ secrets.SMITHY_RS_PUBLIC_ECR_PUSH_ROLE_ARN }}
+        role-session-name: GitHubActions
+        aws-region: us-west-2
+    - name: Save the docker login password to the output
+      id: set-token
       run: |
-        git config --local user.name "AWS SDK Rust Bot"
-        git config --local user.email "aws-sdk-rust-primary@amazon.com"
-        git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
-        git fetch origin github-pages
+        ENCRYPTED_PAYLOAD=$(
+          gpg --symmetric --batch --passphrase "${{ secrets.DOCKER_LOGIN_TOKEN_PASSPHRASE }}" --output - <(aws ecr-public get-login-password --region us-east-1) | base64 -w0
+        )
+        echo "docker-login-password=$ENCRYPTED_PAYLOAD" >> $GITHUB_OUTPUT
 
-        pushd design &>/dev/null
-        cargo install mdbook
-        cargo install --locked mdbook-mermaid
-        mdbook build --dest-dir ../../output
-        popd &>/dev/null
 
-        git checkout origin/github-pages -b github-pages
-        rm -rf design
-        mv ../output design
-        git add design
-        git commit -m "Update design docs"
-        git push origin github-pages
+  # This job detects if the PR made changes to build tools. If it did, then it builds a new
+  # build Docker image. Otherwise, it downloads a build image from Public ECR. In both cases,
+  # it uploads the image as a build artifact for other jobs to download and use.
+  acquire-base-image:
+    name: Acquire Base Image
+    needs: save-docker-login-token
+    runs-on: smithy_ubuntu-latest_8-core
+    env:
+      ENCRYPTED_DOCKER_PASSWORD: ${{ needs.save-docker-login-token.outputs.docker-login-password }}
+      DOCKER_LOGIN_TOKEN_PASSPHRASE: ${{ secrets.DOCKER_LOGIN_TOKEN_PASSPHRASE }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        path: smithy-rs
+    - name: Acquire base image
+      id: acquire
+      env:
+        DOCKER_BUILDKIT: 1
+      run: ./smithy-rs/.github/scripts/acquire-build-image
+    - name: Acquire credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.SMITHY_RS_PUBLIC_ECR_PUSH_ROLE_ARN }}
+        role-session-name: GitHubActions
+        aws-region: us-west-2
+    - name: Upload image
+      run: |
+        IMAGE_TAG="$(./smithy-rs/.github/scripts/docker-image-hash)"
+        docker tag "smithy-rs-base-image:${IMAGE_TAG}" "${{ env.ecr_repository }}:${IMAGE_TAG}"
+        aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+        docker push "${{ env.ecr_repository }}:${IMAGE_TAG}"
+
+  canary:
+    name: Canary
+    needs: acquire-base-image
+    uses: ./.github/workflows/canary.yml
+    with:
+      pull_request_number: 0
+      commit_sha: ${{ inputs.commit_sha }}
+    secrets:
+      SMITHY_RS_CANARY_GITHUB_ACTIONS_ROLE_ARN: ${{ secrets.SMITHY_RS_CANARY_GITHUB_ACTIONS_ROLE_ARN }}
+      CANARY_LAMBDA_CODE_S3_BUCKET: ${{ secrets.CANARY_LAMBDA_CODE_S3_BUCKET }}
+      CANARY_LAMBDA_TEST_S3_BUCKET: ${{ secrets.CANARY_LAMBDA_TEST_S3_BUCKET }}
+      CANARY_LAMBDA_EXECUTION_ROLE_ARN: ${{ secrets.CANARY_LAMBDA_EXECUTION_ROLE_ARN }}
+      CANARY_LAMBDA_TEST_S3_MRAP_BUCKET_ARN: ${{ secrets.CANARY_LAMBDA_TEST_S3_MRAP_BUCKET_ARN }}
+      CANARY_LAMBDA_TEST_S3_EXPRESS_BUCKET_NAME: ${{ secrets.CANARY_LAMBDA_TEST_S3_EXPRESS_BUCKET_NAME }}
