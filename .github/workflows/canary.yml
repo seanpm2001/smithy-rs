@@ -20,14 +20,6 @@ on:
         required: true
       CANARY_LAMBDA_CODE_S3_BUCKET:
         required: true
-      CANARY_LAMBDA_TEST_S3_BUCKET:
-        required: true
-      CANARY_LAMBDA_EXECUTION_ROLE_ARN:
-        required: true
-      CANARY_LAMBDA_TEST_S3_MRAP_BUCKET_ARN:
-        required: true
-      CANARY_LAMBDA_TEST_S3_EXPRESS_BUCKET_NAME:
-        required: true
 
 # Allow one instance of this workflow per pull request, and cancel older runs when new changes are pushed
 concurrency:
@@ -57,5 +49,4 @@ jobs:
       uses: ./smithy-rs/.github/actions/docker-build
       with:
         action: run-canary
-        # TODO(Canary): Replace a list of env variables with a JSON stored in S3
-        action-arguments: ${{ secrets.CANARY_LAMBDA_CODE_S3_BUCKET }} ${{ secrets.CANARY_LAMBDA_TEST_S3_BUCKET }} ${{ secrets.CANARY_LAMBDA_EXECUTION_ROLE_ARN }} ${{ secrets.CANARY_LAMBDA_TEST_S3_MRAP_BUCKET_ARN }} ${{ secrets.CANARY_LAMBDA_TEST_S3_EXPRESS_BUCKET_NAME }} ${{ steps.creds.outputs.aws-access-key-id }} ${{ steps.creds.outputs.aws-secret-access-key }} ${{ steps.creds.outputs.aws-session-token }}
+        action-arguments: ${{ secrets.CANARY_LAMBDA_CODE_S3_BUCKET }} ${{ steps.creds.outputs.aws-access-key-id }} ${{ steps.creds.outputs.aws-secret-access-key }} ${{ steps.creds.outputs.aws-session-token }}
