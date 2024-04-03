@@ -1,70 +1,45 @@
 # This workflow updates the `next` branch with freshly generated
 # code from the latest smithy-rs and models that reside in aws-sdk-rust.
 
-# Allow only one release to run at a time
-concurrency:
-  group: update-aws-sdk-next
-  cancel-in-progress: true
-
 name: Update `aws-sdk-rust/next`
+
 on:
+  schedule:
+    # Runs 00:00 UTC every day
+  - cron: 15 3  * * *
   workflow_dispatch:
     inputs:
-      generate_ref:
+      commit_sha:
         description: |
-          Which branch/commit/tag of smithy-rs to use to generate aws-sdk-rust/next. Defaults to `main`.
+          Commit SHA: The SHA of the git commit that you want to release.
+          You must use the non-abbreviated SHA (e.g. b2318b0 won't work!).
         required: true
         type: string
-        default: main
+
+# Allow only one release to run at a time
+concurrency:
+  group: smithy-rs-dry-run-release
+  cancel-in-progress: true
 
 jobs:
-  update-next:
-    name: Update `next`
-    runs-on: ubuntu-latest
-    steps:
-    - name: Check out `smithy-rs`
-      uses: actions/checkout@v4
-      with:
-        repository: smithy-lang/smithy-rs
-        ref: ${{ inputs.generate_ref }}
-        path: smithy-rs
-    - name: Check out `aws-sdk-rust`
-      uses: actions/checkout@v4
-      with:
-        repository: awslabs/aws-sdk-rust
-        ref: main
-        path: aws-sdk-rust
-        token: ${{ secrets.RELEASE_AUTOMATION_BOT_PAT }}
-    - name: Set up JDK
-      uses: actions/setup-java@v4
-      with:
-        distribution: corretto
-        java-package: jdk
-        java-version: 11
-      # Rust is only used to `rustfmt` the generated code; doesn't need to match MSRV
-    - name: Set up Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: 1.74.1
-    - name: Delete old SDK
-      run: |
-    - name: Generate a fresh SDK
-      run: |
-        WORKSPACE="$(pwd)"
-        cd smithy-rs
-        ./gradlew aws:sdk:assemble --info -Paws.sdk.models.path="${WORKSPACE}/aws-sdk-rust/aws-models"
-    - name: Update `aws-sdk-rust/next`
-      run: |
-        set -eux
-        cd aws-sdk-rust
-        git checkout origin/main -b next
+  smithy-rs-manual-dry-run-release:
+    name: Manual dry run release
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    uses: ./.github/workflows/release.yml
+    with:
+      commit_sha: ${{ inputs.commit_sha }}
+      dry_run: true
+    secrets:
+      RELEASE_AUTOMATION_BOT_PAT: ${{ secrets.RELEASE_AUTOMATION_BOT_PAT }}
+      RELEASE_AUTOMATION_BOT_CRATESIO_TOKEN: ${{ secrets.RELEASE_AUTOMATION_BOT_CRATESIO_TOKEN }}
 
-        # Delete the old SDK
-        rm -rf sdk examples tests
-        rm -f versions.toml Cargo.toml index.md
-
-        # Copy in the new SDK
-        mv ../smithy-rs/aws/sdk/build/aws-sdk/* .
-        git add .
-        git -c 'user.name=AWS SDK Rust Bot' -c 'user.email=aws-sdk-rust-primary@amazon.com' commit -m 'Update `aws-sdk-rust/next`' --allow-empty
-        git push origin next:next --force
+  smithy-rs-scheduled-dry-run-release:
+    name: Scheduled dry run release
+    if: ${{ github.event_name == 'schedule' }}
+    uses: ./.github/workflows/release.yml
+    with:
+      commit_sha: main
+      dry_run: true
+    secrets:
+      RELEASE_AUTOMATION_BOT_PAT: ${{ secrets.RELEASE_AUTOMATION_BOT_PAT }}
+      RELEASE_AUTOMATION_BOT_CRATESIO_TOKEN: ${{ secrets.RELEASE_AUTOMATION_BOT_CRATESIO_TOKEN }}

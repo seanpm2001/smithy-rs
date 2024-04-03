@@ -1,49 +1,27 @@
-on:
-  workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-    - design/**
-
 name: Update GitHub Pages
 
-env:
-  rust_version: 1.74.1
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: |
+          Commit SHA: The SHA of the git commit that you want to release.
+          You must use the non-abbreviated SHA (e.g. b2318b0 won't work!).
+        required: true
+        type: string
 
-# Allow only one doc pages build to run at a time for the entire smithy-rs repo
+# Allow only one release to run at a time
 concurrency:
-  group: github-pages-yml
+  group: smithy-rs-prod-release
   cancel-in-progress: true
 
 jobs:
-  build-and-deploy-docs:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        persist-credentials: false
-    - uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ env.rust_version }}
-    - name: Generate docs
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        git config --local user.name "AWS SDK Rust Bot"
-        git config --local user.email "aws-sdk-rust-primary@amazon.com"
-        git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
-        git fetch origin github-pages
-
-        pushd design &>/dev/null
-        cargo install mdbook
-        cargo install --locked mdbook-mermaid
-        mdbook build --dest-dir ../../output
-        popd &>/dev/null
-
-        git checkout origin/github-pages -b github-pages
-        rm -rf design
-        mv ../output design
-        git add design
-        git commit -m "Update design docs"
-        git push origin github-pages
+  smithy-rs-prod-release:
+    name: Prod release
+    uses: ./.github/workflows/release.yml
+    with:
+      commit_sha: ${{ inputs.commit_sha }}
+      dry_run: false
+    secrets:
+      RELEASE_AUTOMATION_BOT_PAT: ${{ secrets.RELEASE_AUTOMATION_BOT_PAT }}
+      RELEASE_AUTOMATION_BOT_CRATESIO_TOKEN: ${{ secrets.RELEASE_AUTOMATION_BOT_CRATESIO_TOKEN }}

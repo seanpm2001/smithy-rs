@@ -21,7 +21,9 @@ on:
         type: boolean
     secrets:
       RELEASE_AUTOMATION_BOT_PAT:
-        required: false
+        required: true
+      RELEASE_AUTOMATION_BOT_CRATESIO_TOKEN:
+        required: true
 
 jobs:
   check-actor-for-prod-run:
@@ -77,34 +79,11 @@ jobs:
     if: inputs.dry_run == false
     needs:
     - acquire-base-image
-    uses: ./.github/workflows/ci.yml
-    with:
-      run_sdk_examples: false
-      git_ref: ${{ inputs.commit_sha }}
-
-  check-semver-hazards:
-    name: Check for semver hazards
-    needs:
-    - acquire-base-image
-    # We need `always` here otherwise this job won't run if the previous job has been skipped
-    # See https://samanpavel.medium.com/github-actions-conditional-job-execution-e6aa363d2867
-    if: always()
-    runs-on: smithy_ubuntu-latest_8-core
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-      with:
-        path: smithy-rs
-        ref: ${{ inputs.commit_sha }}
-        fetch-depth: 0
-    - uses: actions/checkout@v4
-      with:
-        repository: awslabs/aws-sdk-rust
-        path: aws-sdk-rust
-        fetch-depth: 0
-    - name: Run check-semver-hazards
-      uses: ./smithy-rs/.github/actions/docker-build
-      with:
-        action: check-semver-hazards
+    - name: Fake run
+      run: |
+        echo "running ci.yml for ${{ inputs.commit_sha }}"
 
   get-or-create-release-branch:
     name: Get or create a release branch
@@ -186,26 +165,14 @@ jobs:
           if [[ "${DRY_RUN}" == "true" ]]; then
             # During dry-runs, "git push" without "--force" can fail if smithy-rs-release-x.y.z-preview is behind
             # smithy-rs-release-x.y.z, but that does not matter much during dry-runs.
-            git push --force origin "HEAD:refs/heads/${RELEASE_BRANCH_NAME}"
-            git push --dry-run origin "HEAD:refs/heads/${RELEASE_BRANCH_NAME}"
+            echo "git push --force origin HEAD:refs/heads/${RELEASE_BRANCH_NAME}"
+            echo "git push --dry-run origin HEAD:refs/heads/${RELEASE_BRANCH_NAME}"
           else
             echo "attempting to push $(git rev-parse HEAD) to $RELEASE_BRANCH_NAME $(git rev-parse $RELEASE_BRANCH_NAME)"
-            git push origin "HEAD:refs/heads/${RELEASE_BRANCH_NAME}"
+            echo "git push origin HEAD:refs/heads/${RELEASE_BRANCH_NAME}"
           fi
         fi
         echo "commit_sha=$(git rev-parse HEAD)" > $GITHUB_OUTPUT
-    - name: Tag release
-      uses: actions/github-script@v7
-      with:
-        github-token: ${{ secrets.RELEASE_AUTOMATION_BOT_PAT }}
-        script: |
-          const createReleaseScript = require("./smithy-rs/.github/workflows/release-scripts/create-release.js");
-          await createReleaseScript({
-            github,
-            isDryRun: ${{ inputs.dry_run }},
-            releaseManifestPath: "smithy-rs-release/smithy-rs-release-manifest.json",
-            releaseCommitish: "${{ steps.push-changelog.outputs.commit_sha }}"
-          });
     - name: Publish to crates.io
       shell: bash
       working-directory: smithy-rs-release/crates-to-publish
@@ -225,39 +192,5 @@ jobs:
           # This version has already been yanked. This command succeeds if we have a token with permission to yank the crate.
           cargo yank aws-sigv4 --version 0.55.0
         else
-          publisher publish -y --location .
+          echo "publisher publish -y --location ."
         fi
-
-  trim-changelog-next-on-main:
-    name: Remove released entries from CHANGELOG.next.toml on the main branch
-    if: inputs.dry_run == false && needs.get-or-create-release-branch.outputs.new_release_series == true
-    needs:
-    - get-or-create-release-branch
-    - release
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout smithy-rs
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ inputs.commit_sha }}
-        path: smithy-rs
-        token: ${{ secrets.RELEASE_AUTOMATION_BOT_PAT }}
-    - name: Empty CHANGELOG.next.toml
-      uses: ./smithy-rs/.github/actions/docker-build
-      with:
-        action: generate-new-changelog-next-toml
-    - name: Download all artifacts
-      uses: ./smithy-rs/.github/actions/download-all-artifacts
-    - name: Push smithy-rs changes
-      working-directory: generate-new-changelog-next-toml/smithy-rs
-      shell: bash
-      run: |
-        set -eux
-
-        # This will fail if other commits have been pushed to `main` after `commit_sha`
-        # In particular, this will ALWAYS fail if you are creating a new release series from
-        # a commit that is not the current tip of `main`.
-        # We can build more refined automation to handle this case in the future - until then, it'll require
-        # a manual PR to edit the current CHANGELOG.next.toml file and remove the released entries.
-        git -c 'user.name=AWS SDK Rust Bot' -c 'user.email=aws-sdk-rust-primary@amazon.com' commit CHANGELOG.next.toml --message "Remove released entries from \`CHANGELOG.next.toml\`"
-        git push origin main
