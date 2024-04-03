@@ -89,7 +89,6 @@ jobs:
     name: Get or create a release branch
     needs:
     - acquire-base-image
-    - check-semver-hazards
     - release-ci
     # We need `always` here otherwise this job won't run if the previous job has been skipped
     # See https://samanpavel.medium.com/github-actions-conditional-job-execution-e6aa363d2867
