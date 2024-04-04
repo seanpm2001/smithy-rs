@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  trigger backport PR creation workflow:
+  trigger-backport-PR-creation-workflow:
     name: Backport PR creation
     uses: ./.github/workflows/github-pages.yml
     secrets:
