@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  name: trigger backport PR creation workflow
-  runs-on: ubuntu-latest
-  steps:
-  - name: Backport PR creation
-    uses: ./.github/workflows/github-pages.yml
-    secrets:
-      RELEASE_AUTOMATION_BOT_PAT: ${{ secrets.RELEASE_AUTOMATION_BOT_PAT }}
+  trigger backport PR creation workflow:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Backport PR creation
+      uses: ./.github/workflows/github-pages.yml
+      secrets:
+        RELEASE_AUTOMATION_BOT_PAT: ${{ secrets.RELEASE_AUTOMATION_BOT_PAT }}
