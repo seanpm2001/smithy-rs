@@ -8,7 +8,6 @@ on:
 jobs:
   trigger backport PR creation workflow:
     name: Backport PR creation
-    runs-on: ubuntu-latest
     uses: ./.github/workflows/github-pages.yml
     secrets:
       RELEASE_AUTOMATION_BOT_PAT: ${{ secrets.RELEASE_AUTOMATION_BOT_PAT }}
