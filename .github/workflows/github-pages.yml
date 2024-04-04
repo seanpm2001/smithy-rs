@@ -1,10 +1,13 @@
 on:
   workflow_dispatch:
+  workflow_call:
+    secrets:
+      RELEASE_AUTOMATION_BOT_PAT:
+        required: true
 
 name: Update GitHub Pages
 
 env:
-  rust_version: 1.74.1
   release_branch: smithy-rs-release-1.x.y
 
 jobs:
