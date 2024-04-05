@@ -22,7 +22,10 @@ jobs:
     - name: Prepare backport branch
       id: backport-branch
       run: |
-        git -c 'user.name=AWS SDK Rust Bot' -c 'user.email=aws-sdk-rust-primary@amazon.com' fetch
+        git config --global user.email "aws-sdk-rust-primary@amazon.com"
+        git config --global user.name "AWS SDK Rust Bot"
+
+        git fetch
         git checkout origin/main
         backport_branch="merge-${{ env.release_branch }}-to-main-$(date +%s)"
         git checkout -b "${backport_branch}"
