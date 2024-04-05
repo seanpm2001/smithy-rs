@@ -21,6 +21,8 @@ jobs:
 
     - name: Prepare backport branch
       id: backport-branch
+      env:
+        GITHUB_TOKEN: ${{ secrets.RELEASE_AUTOMATION_BOT_PAT }}
       run: |
         git fetch
         git checkout origin/main
