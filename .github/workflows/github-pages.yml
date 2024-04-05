@@ -42,4 +42,6 @@ jobs:
           --body "Merge it with \`gh pr merge --admin --merge\` or manually merge it with the merge commit (not squash merge)." \
           --base main \
           --head ${{ steps.backport-branch.outputs.branch_name }} \
-          --label "needs-sdk-review"
+          --label "needs-sdk-review" \
+          --author "AWS SDK Rust Bot <aws-sdk-rust-primary@amazon.com>" \
+          --draft
