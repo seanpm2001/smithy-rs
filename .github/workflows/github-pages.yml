@@ -22,14 +22,14 @@ jobs:
     - name: Prepare backport branch
       id: backport-branch
       run: |
-        git fetch
+        git -c 'user.name=AWS SDK Rust Bot' -c 'user.email=aws-sdk-rust-primary@amazon.com' fetch
         git checkout origin/main
         backport_branch="merge-${{ env.release_branch }}-to-main-$(date +%s)"
-        git -c 'user.name=AWS SDK Rust Bot' -c 'user.email=aws-sdk-rust-primary@amazon.com' checkout -b "${backport_branch}"
+        git checkout -b "${backport_branch}"
 
         # this assumes the merge runs cleanly without conflicts
-        git -c 'user.name=AWS SDK Rust Bot' -c 'user.email=aws-sdk-rust-primary@amazon.com' merge "origin/${{ env.release_branch }}" -m 'Merge remote-tracking branch "origin/${{ env.release_branch }}" into "merge-${{ env.release_branch }}-to-main"'
-        git -c 'user.name=AWS SDK Rust Bot' -c 'user.email=aws-sdk-rust-primary@amazon.com' push origin HEAD
+        git merge "origin/${{ env.release_branch }}" -m 'Merge remote-tracking branch "origin/${{ env.release_branch }}" into "merge-${{ env.release_branch }}-to-main"'
+        git push origin HEAD
 
         echo "branch_name=${backport_branch}" > $GITHUB_OUTPUT
 
