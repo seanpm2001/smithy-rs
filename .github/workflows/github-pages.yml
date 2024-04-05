@@ -35,7 +35,7 @@ jobs:
 
     - name: Create pull request
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.RELEASE_AUTOMATION_BOT_PAT }}
       run: |
         gh pr create \
           --title "Dummy merge ${{ env.release_branch }} into main" \
@@ -43,5 +43,4 @@ jobs:
           --base main \
           --head ${{ steps.backport-branch.outputs.branch_name }} \
           --label "needs-sdk-review" \
-          --author "AWS SDK Rust Bot <aws-sdk-rust-primary@amazon.com>" \
           --draft
