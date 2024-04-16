@@ -20,8 +20,8 @@ pushd "aws/rust-runtime/aws-config" &>/dev/null
 echo "${C_YELLOW}## Running 'cargo clippy'${C_RESET}"
 cargo clippy --all-features
 
-echo "${C_YELLOW}## Running 'cargo test'${C_RESET}"
-cargo test --all-features
+echo "${C_YELLOW}## Running 'cargo nextest run'${C_RESET}"
+cargo nextest run --all-features
 
 echo "${C_YELLOW}## Running 'cargo doc'${C_RESET}"
 cargo doc --no-deps --document-private-items --all-features
