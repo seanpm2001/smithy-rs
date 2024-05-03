@@ -7,6 +7,7 @@ package software.amazon.smithy.rust.codegen.core.smithy.protocols
 
 import software.amazon.smithy.codegen.core.CodegenException
 import software.amazon.smithy.model.Model
+import software.amazon.smithy.model.shapes.MemberShape
 import software.amazon.smithy.model.shapes.OperationShape
 import software.amazon.smithy.model.shapes.ToShapeId
 import software.amazon.smithy.model.traits.TimestampFormatTrait
@@ -25,7 +26,7 @@ import software.amazon.smithy.rust.codegen.core.util.expectTrait
 import software.amazon.smithy.rust.codegen.core.util.isStreaming
 import software.amazon.smithy.rust.codegen.core.util.outputShape
 
-
+// TODO Rename these to RpcV2Cbor
 class RpcV2HttpBindingResolver(
     private val model: Model,
 ) : HttpBindingResolver {
@@ -75,6 +76,9 @@ class RpcV2HttpBindingResolver(
         }
         return requestContentType(operationShape)
     }
+
+    override fun eventStreamMessageContentType(memberShape: MemberShape): String? =
+        ProtocolContentTypes.eventStreamMemberContentType(model, memberShape, "application/cbor")
 }
 
 /**

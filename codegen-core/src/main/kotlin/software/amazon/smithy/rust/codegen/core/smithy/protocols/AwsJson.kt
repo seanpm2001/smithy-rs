@@ -79,7 +79,6 @@ class AwsJsonHttpBindingResolver(
 
     override fun errorResponseBindings(errorShape: ToShapeId): List<HttpBindingDescriptor> = bindings(errorShape)
 
-    // TODO This won't set the correct `Content-Type` for event streaming operations!
     override fun requestContentType(operationShape: OperationShape): String =
         "application/x-amz-json-${awsJsonVersion.value}"
 
