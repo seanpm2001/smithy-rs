@@ -36,6 +36,7 @@ import software.amazon.smithy.rust.codegen.core.rustlang.withBlockTemplate
 import software.amazon.smithy.rust.codegen.core.smithy.CodegenContext
 import software.amazon.smithy.rust.codegen.core.smithy.CodegenTarget
 import software.amazon.smithy.rust.codegen.core.smithy.RuntimeType
+import software.amazon.smithy.rust.codegen.core.smithy.RuntimeType.Companion.preludeScope
 import software.amazon.smithy.rust.codegen.core.smithy.canUseDefault
 import software.amazon.smithy.rust.codegen.core.smithy.customize.NamedCustomization
 import software.amazon.smithy.rust.codegen.core.smithy.customize.Section
@@ -119,6 +120,7 @@ class JsonParserGenerator(
             "skip_to_end" to smithyJson.resolve("deserialize::token::skip_to_end"),
             "Token" to smithyJson.resolve("deserialize::Token"),
             "or_empty" to orEmptyJson(),
+            *preludeScope,
         )
 
     /**
@@ -560,6 +562,15 @@ class JsonParserGenerator(
                             objectKeyLoop(hasMembers = shape.members().isNotEmpty()) {
                                 rustTemplate(
                                     """
+                                    if let #{Some}(#{Ok}(#{Token}::ValueNull { .. })) = tokens.peek() {
+                                        let _ = tokens.next().expect("peek returned a token")?;
+                                        continue;
+                                    }
+                                    """,
+                                    *codegenScope,
+                                )
+                                rustTemplate(
+                                    """
                                     let key = key.to_unescaped()?;
                                     if key == "__type" {
                                         #{skip_value}(tokens)?;
@@ -620,6 +631,16 @@ class JsonParserGenerator(
                             *codegenScope,
                         )
                     }
+                    // If we've gotten to the point where the union had a `{ ... }` section, we can't return None
+                    // anymore. If we didn't parse a union at this point, this is an error.
+                    rustTemplate(
+                        """
+                        if variant.is_none() {
+                            return Err(#{Error}::custom("Union did not contain a valid variant."))
+                        }
+                        """,
+                        *codegenScope,
+                    )
                     rust("Ok(variant)")
                 }
             }
