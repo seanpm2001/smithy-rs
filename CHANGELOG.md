@@ -1,4 +1,12 @@
 <!-- Do not manually edit this file. Use the `changelogger` tool. -->
+May 19th, 2024
+==============
+**New this release:**
+- :bug: (client, [aws-sdk-rust#1133](https://github.com/awslabs/aws-sdk-rust/issues/1133)) Fix panics that occurred when `Duration` for exponential backoff could not be created from too big a float.
+- :bug: (all, [smithy-rs#3491](https://github.com/smithy-lang/smithy-rs/issues/3491), [aws-sdk-rust#1079](https://github.com/awslabs/aws-sdk-rust/issues/1079)) Clients now enforce that the Content-Length sent by the server matches the length of the returned response body. In most cases, Hyper will enforce this behavior, however, in extremely rare circumstances where the Tokio runtime is dropped in between subsequent requests, this scenario can occur.
+- :bug: (all, [aws-sdk-rust#1141](https://github.com/awslabs/aws-sdk-rust/issues/1141), [aws-sdk-rust#1146](https://github.com/awslabs/aws-sdk-rust/issues/1146), [aws-sdk-rust#1148](https://github.com/awslabs/aws-sdk-rust/issues/1148)) Fixes stalled upload stream protection to not apply to empty request bodies and to stop checking for violations once the request body has been read.
+
+
 May 8th, 2024
 =============
 **Breaking Changes:**
